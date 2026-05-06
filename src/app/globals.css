@@ -120,7 +120,7 @@
   /* ── Checklist toggle ── */
   .chk-btn {
     @apply w-[22px] h-[22px] rounded-md border text-[10px] font-bold
-           inline-flex items-center justify-content-center cursor-pointer
+           inline-flex items-center justify-center cursor-pointer
            transition-all duration-150;
   }
   .chk-on  { @apply bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100; }
