@@ -16,8 +16,8 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   const fileRef = useRef<HTMLInputElement>(null)
 
   const active = employees.filter(e => e.status === 'active')
-  const divs = [...new Set(employees.map(e => e.division))].sort()
-  const entities = [...new Set(employees.map(e => e.entity))].sort()
+  const divs = Array.from(new Set(employees.map(e => e.division))).sort()
+  const entities = Array.from(new Set(employees.map(e => e.entity))).sort()
 
   const filtered = employees.filter(e =>
     (!search || e.full_name.toLowerCase().includes(search.toLowerCase()) || e.employee_id.toLowerCase().includes(search.toLowerCase())) &&
