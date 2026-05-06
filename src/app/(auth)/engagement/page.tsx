@@ -16,9 +16,9 @@ export default async function EngagementPage() {
   const turnoverByDiv: Record<string, number> = { Creative: 13.3, Marketing: 10, 'Social Media': 14.3, Finance: 0, 'Human Capital': 0, Operations: 0 }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="page-wrapper">
       <Topbar title="Employee Engagement" subtitle="Survey Q2 2026" />
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="page-content">
         <div className="grid grid-cols-4 gap-3">
           <KPICard label="Avg engagement score"    value={`${avgEng}/5`} change="vs 3.8 Q1" changeType="up" accent="bg-teal-400" />
           <KPICard label="Avg satisfaction (CSAT)" value={`${avgSat}/5`} change="vs 3.5 Q1" changeType="up" accent="bg-blue-400" />
@@ -32,7 +32,7 @@ export default async function EngagementPage() {
             <div className="card-body space-y-2">
               {(surveys ?? []).map(sv => {
                 const pct = Math.round((sv.engagement_score ?? 0) / 5 * 100)
-                const col = pct >= 80 ? 'bg-teal-500' : pct >= 70 ? 'bg-navy-700' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                const col = pct >= 80 ? 'bg-teal-500' : pct >= 70 ? 'bg-[#1a2d5a]' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'
                 return <InlineBar key={sv.id} label={sv.division} value={`${sv.engagement_score}/5`} pct={pct} color={col} />
               })}
             </div>
@@ -40,7 +40,7 @@ export default async function EngagementPage() {
           <div className="card">
             <div className="card-head"><span className="card-title">Engagement vs turnover (korelasi)</span></div>
             <div className="card-body">
-              <div className="text-[11px] text-navy-300 mb-4">Engagement rendah → turnover tinggi.</div>
+              <div className="text-[11px] text-slate-300 mb-4">Engagement rendah → turnover tinggi.</div>
               <div className="space-y-3">
                 {(surveys ?? []).map(sv => {
                   const turn = turnoverByDiv[sv.division] ?? 0
@@ -48,13 +48,13 @@ export default async function EngagementPage() {
                   const turnBg = turn === 0 ? 'bg-teal-50 text-teal-700' : turn >= 12 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                   return (
                     <div key={sv.id} className="flex items-center gap-3">
-                      <div className="text-[11px] text-navy-600 w-[90px] flex-shrink-0">{sv.division}</div>
+                      <div className="text-[11px] text-slate-600 w-[90px] flex-shrink-0">{sv.division}</div>
                       <div className="flex gap-2 flex-1">
                         <div className={cn('flex-1 rounded-lg px-3 py-1.5 text-center', engBg)}>
                           <div className="text-[13px] font-extrabold">{sv.engagement_score}</div>
                           <div className="text-[9px]">engagement</div>
                         </div>
-                        <div className="flex items-center text-navy-200 text-lg">→</div>
+                        <div className="flex items-center text-slate-200 text-lg">→</div>
                         <div className={cn('flex-1 rounded-lg px-3 py-1.5 text-center', turnBg)}>
                           <div className="text-[13px] font-extrabold">{turn}%</div>
                           <div className="text-[9px]">turnover</div>
@@ -79,8 +79,8 @@ export default async function EngagementPage() {
             ].map(t => (
               <div key={t.label} className="p-5 text-center">
                 <div className={cn('text-2xl font-extrabold', t.color)}>{t.score}</div>
-                <div className="text-[11px] font-semibold text-navy-800 mt-2">{t.label}</div>
-                <div className="text-[10px] text-navy-300 mt-1">{t.note}</div>
+                <div className="text-[11px] font-semibold text-slate-800 mt-2">{t.label}</div>
+                <div className="text-[10px] text-slate-300 mt-1">{t.note}</div>
               </div>
             ))}
           </div>

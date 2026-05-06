@@ -6,9 +6,9 @@ export default async function WorkforcePage() {
   const db = createServiceClient()
   const { data: employees } = await db.from('employees').select('*').order('full_name')
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="page-wrapper">
       <Topbar title="Workforce Overview" subtitle="All entities · 2026" />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-content">
         <WorkforceClient employees={employees ?? []} />
       </div>
     </div>

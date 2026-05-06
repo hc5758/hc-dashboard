@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         navy: {
           50:  '#f0f3fa',
@@ -30,9 +33,6 @@ const config: Config = {
           600: '#0f6e56',
           700: '#085041',
         },
-      },
-      fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
     },
   },

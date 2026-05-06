@@ -6,9 +6,9 @@ export default async function RecruitmentPage() {
   const db = createServiceClient()
   const { data: recruitment } = await db.from('recruitment').select('*').order('created_at', { ascending: false })
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="page-wrapper">
       <Topbar title="Recruitment" subtitle="Q2 2026" />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-content">
         <RecruitmentClient recruitment={recruitment ?? []} />
       </div>
     </div>

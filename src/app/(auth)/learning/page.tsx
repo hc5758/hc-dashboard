@@ -9,9 +9,9 @@ export default async function LearningPage() {
     db.from('employees').select('id,full_name,division').eq('status', 'active').order('full_name'),
   ])
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="page-wrapper">
       <Topbar title="Learning & Development" subtitle="YTD 2026" />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="page-content">
         <LearningClient tna={tna ?? []} employees={employees ?? []} />
       </div>
     </div>

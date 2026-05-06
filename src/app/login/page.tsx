@@ -23,10 +23,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0f1e3d] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-teal-400 rounded-2xl flex items-center justify-center text-navy-800 font-extrabold text-sm mx-auto mb-4">5758</div>
+          <div className="w-14 h-14 bg-teal-400 rounded-2xl flex items-center justify-center text-[#0f1e3d] font-extrabold text-sm mx-auto mb-4">5758</div>
           <h1 className="text-white text-xl font-bold">HC Analytics Dashboard</h1>
           <p className="text-white/30 text-sm mt-1">5758 Creative Lab · Internal</p>
         </div>
@@ -43,7 +43,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input type={show ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)}
                   placeholder="Masukkan password" required
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 outline-none focus:border-teal-400/50 transition-all pr-11" />
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/40 outline-none focus:border-teal-400/70 transition-all pr-11" />
                 <button type="button" onClick={() => setShow(!show)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                   {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -51,7 +51,7 @@ export default function LoginPage() {
               </div>
             </div>
             <button type="submit" disabled={loading}
-              className="w-full bg-teal-400 hover:bg-teal-300 disabled:opacity-50 text-navy-800 font-bold text-sm py-3 rounded-xl transition-colors">
+              className="w-full bg-teal-400 hover:bg-teal-300 disabled:opacity-50 text-slate-800 font-bold text-sm py-3 rounded-xl transition-colors">
               {loading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
