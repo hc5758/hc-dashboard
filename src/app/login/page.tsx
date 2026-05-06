@@ -43,7 +43,7 @@ export default function LoginPage() {
               <div className="relative">
                 <input type={show ? 'text' : 'password'} value={pw} onChange={e => setPw(e.target.value)}
                   placeholder="Masukkan password" required
-                  className="w-full bg-white/8 border border-white/12 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 outline-none focus:border-teal-400/50 transition-all pr-11" />
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 outline-none focus:border-teal-400/50 transition-all pr-11" />
                 <button type="button" onClick={() => setShow(!show)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                   {show ? <EyeOff size={16} /> : <Eye size={16} />}
