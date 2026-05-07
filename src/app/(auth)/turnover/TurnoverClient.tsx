@@ -24,7 +24,7 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
   const offFiltered = filterYear ? offboarding.filter(o => o.year === filterYear || new Date(o.effective_date||o.report_date||'').getFullYear() === filterYear) : offboarding
 
   // Available years
-  const years = Array.from(new Set(offboarding.map(o => o.year || new Date(o.effective_date||o.report_date||'').getFullYear()).filter(Boolean))).sort((a,b)=>b-a)
+  const years = Array.from(new Set(offboarding.map(o => o.year || new Date(o.effective_date||o.report_date||'').getFullYear()).filter(Boolean))).sort((a:any,b:any)=>b-a)
 
   const total = offFiltered.length
   const turnoverRate = active.length>0 ? ((total/(active.length+total))*100).toFixed(1) : '0'

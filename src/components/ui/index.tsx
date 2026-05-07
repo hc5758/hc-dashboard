@@ -1,7 +1,7 @@
 'use client'
 import { cn, initials, avatarColor, statusLabel, statusBadgeClass } from '@/lib/utils'
 
-export function Badge({ children, variant = 'gray', className }: { children: React.ReactNode; variant?: string; className?: string }) {
+export function Badge({ children, variant = 'gray', className }: { children?: React.ReactNode; variant?: string; className?: string }) {
   const v: Record<string,string> = {
     teal:'bg-teal-50 text-teal-700 border-teal-200', navy:'bg-slate-100 text-slate-700 border-slate-200',
     red:'bg-red-50 text-red-700 border-red-200', amber:'bg-amber-50 text-amber-700 border-amber-200',
@@ -60,7 +60,7 @@ export function FunnelRow({ label, count, total, color='bg-[#0f1e3d]' }: { label
   )
 }
 
-export function InlineBar({ label, value, pct, color='bg-[#0f1e3d]' }: { label:string; value:string|number; pct:number; color?:string }) {
+export function InlineBar({ label, value, pct, color='bg-[#0f1e3d]' }: { label:string; value:string|number; pct:number; color?:string; key?:string }) {
   return (
     <div className="bar-row">
       <div className="bar-lbl">{label}</div>

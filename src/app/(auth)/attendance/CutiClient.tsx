@@ -165,7 +165,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   }
 
   async function updateBalanceUsed(empId:string, type:string){
-    const bal=getBalance(empId)
+    const bal=balances.find(b=>b.employee_id===empId)
     if(!bal) return
     const used=leave.filter(l=>l.employee_id===empId&&l.leave_type===(type==='annual'?'Tahunan':'Overtime')&&l.status==='Approved').reduce((s,l)=>s+l.total_days,0)
     await fetch('/api/leave-balance',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:bal.id,[`${type}_used`]:used})})
@@ -208,7 +208,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   // ── Save overtime addition ────────────────────────────────
   async function saveOT(empId:string, addDays:number, note:string){
-    const bal=getBalance(empId)
+    const bal=balances.find(b=>b.employee_id===empId)
     const current=bal?.overtime_entitled??0
     const payload={employee_id:empId,year:2026,overtime_entitled:current+addDays,notes:note}
     const res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})

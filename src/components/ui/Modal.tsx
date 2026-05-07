@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { useEffect } from 'react'
 
 export default function Modal({ title, children, onClose, size = 'md' }: {
-  title: string; children: React.ReactNode; onClose: () => void; size?: 'sm' | 'md' | 'lg'
+  title: string; children?: React.ReactNode; onClose: () => void; size?: 'sm' | 'md' | 'lg'
 }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
