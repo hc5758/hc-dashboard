@@ -13,14 +13,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
-  const { data, error } = await db.from('recruitment_candidates').insert(body).select().single()
+  const { data, error } = await db.from('recruitment_candidates').insert(body).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, ...body } = await req.json()
-  const { data, error } = await db.from('recruitment_candidates').update({ ...body, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+  const { data, error } = await db.from('recruitment_candidates').update(body).eq('id', id).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }

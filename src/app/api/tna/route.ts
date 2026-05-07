@@ -11,7 +11,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
-  const { data, error } = await db.from('tna_records').insert(body).select().single()
+  const { data, error } = await db.from('tna_records').insert(body).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   const body = await req.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  const { data, error } = await db.from('tna_records').update({ ...body, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+  const { data, error } = await db.from('tna_records').update(body).eq('id', id).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }

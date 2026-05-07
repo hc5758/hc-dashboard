@@ -11,7 +11,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
-  const { data, error } = await db.from('employees').insert(body).select().single()
+  const { data, error } = await db.from('employees').insert(body).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
@@ -19,8 +19,11 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, ...body } = await req.json()
-  const { data, error } = await db.from('employees').update({ ...body, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+  // Hapus field yang tidak ada di tabel supaya tidak error
+  const { updated_at, ...cleanBody } = body as any
+  const { data, error } = await db.from('employees').update(cleanBody).eq('id', id).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 })
   return NextResponse.json({ data })
 }
 

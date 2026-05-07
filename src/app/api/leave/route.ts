@@ -17,8 +17,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db
     .from('attendance_leave')
     .insert(body)
-    .select()
-    .single()
+    .select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
@@ -28,10 +27,9 @@ export async function PATCH(req: NextRequest) {
   const { id, ...body } = await req.json()
   const { data, error } = await db
     .from('attendance_leave')
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update(body)
     .eq('id', id)
-    .select()
-    .single()
+    .select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
