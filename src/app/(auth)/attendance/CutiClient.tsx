@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Bell, Trash2, Pencil, Users, AlertCircle } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Bell, Trash2, Pencil } from 'lucide-react'
 import { KPICard, Badge, EmptyState } from '@/components/ui'
 import { fmtDate, calcYoS, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
@@ -27,15 +27,18 @@ const SPECIAL_TYPES = [
   { key:'Duka Serumah', entitled:1, label:'Kedukaan Keluarga Serumah (1 hr)' },
 ]
 
-// Hitung hak cuti tahunan berdasarkan masa kerja
-function calcAnnualEntitled(joinDate: string): number {
-  if (!joinDate) return 12
-  const months = Math.floor((new Date().getTime() - new Date(joinDate).getTime()) / (1000*60*60*24*30))
-  if (months < 12) return 0   // belum 1 tahun
-  if (months < 24) return 12
-  if (months < 60) return 14  // >2 tahun = 14 hari
-  return 15                   // >5 tahun = 15 hari
+// Hak cuti tahunan: selalu 12 hari
+function calcAnnualEntitled(_joinDate: string): number { return 12 }
+
+// Carry-over max 5 hr, hangus setelah Juni
+function calcCarryOver(prevRemaining: number): number {
+  const now = new Date()
+  if (now.getMonth() >= 6) return 0 // Juli+ = hangus
+  return Math.min(prevRemaining, 5)
 }
+
+// Cuti yang TIDAK ngurangin saldo tahunan
+const NON_ANNUAL_TYPES = ['Sakit','Penting','Melahirkan','Cuti Bersama','Overtime','Unpaid']
 
 const EMPTY_LEAVE = { employee_id:'', leave_type:'Tahunan', special_type:'', start_date:'', end_date:'', total_days:1, status:'Approved', notes:'' }
 const EMPTY_BAL   = { employee_id:'', year:2026, annual_entitled:12, annual_carryover:0, overtime_entitled:0, notes:'' }
@@ -55,33 +58,34 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const [leaveForm, setLeaveForm] = useState<any>(EMPTY_LEAVE)
   const [balForm, setBalForm]     = useState<any>(EMPTY_BAL)
   const [activeTab, setActiveTab] = useState<'calendar'|'saldo'>('calendar')
+  const [saldoYear, setSaldoYear] = useState(2026)
   const lf = (k:string,v:any) => setLeaveForm((p:any)=>({...p,[k]:v}))
   const bf = (k:string,v:any) => setBalForm((p:any)=>({...p,[k]:v}))
 
   // ── Helpers ──────────────────────────────────────────────
-  function getBalance(empId:string) {
-    return balances.find(b=>b.employee_id===empId)
-  }
-
-  function getUsed(empId:string, type:string) {
-    return leave.filter(l=>l.employee_id===empId&&l.leave_type===type&&l.status==='Approved')
-      .reduce((s,l)=>s+l.total_days,0)
-  }
-
-  function getSaldo(empId:string, type:string): { entitled:number; used:number; remaining:number } {
-    const bal = getBalance(empId)
+  // Auto-calculate saldo tanpa perlu init manual
+  function getSaldo(empId:string, year:number=2026) {
     const emp = employees.find(e=>e.id===empId)
-    if (type==='Tahunan') {
-      const entitled = (bal?.annual_entitled ?? calcAnnualEntitled(emp?.join_date)) + (bal?.annual_carryover??0)
-      const used = bal?.annual_used ?? getUsed(empId,'Tahunan')
-      return { entitled, used, remaining: entitled-used }
-    }
-    if (type==='Overtime') {
-      const entitled = bal?.overtime_entitled ?? 0
-      const used = bal?.overtime_used ?? getUsed(empId,'Overtime')
-      return { entitled, used, remaining: entitled-used }
-    }
-    return { entitled:0, used:0, remaining:0 }
+    const bal = balances.find(b=>b.employee_id===empId&&b.year===year)
+    
+    // Saldo tahunan
+    const annualEntitled = bal?.annual_entitled ?? calcAnnualEntitled(emp?.join_date)
+    // Carry-over dari tahun sebelumnya (ambil dari balance tahun lalu jika ada)
+    const prevBal = balances.find(b=>b.employee_id===empId&&b.year===year-1)
+    const prevRemaining = prevBal ? (prevBal.annual_entitled + (prevBal.annual_carryover||0)) - (prevBal.annual_used||0) : 0
+    const carryOver = bal?.annual_carryover ?? calcCarryOver(prevRemaining)
+    // Hanya cuti Tahunan yang ngurangi saldo
+    const annualUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const annualTotal = annualEntitled + carryOver
+    const annualLeft  = annualTotal - annualUsed
+
+    // Cuti khusus (sakit, ulang tahun, dll) — tidak ngurangi tahunan
+    const sickUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const specialUsed   = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const otEntitled    = bal?.overtime_entitled ?? 0
+    const otUsed        = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+
+    return { annualEntitled, carryOver, annualTotal, annualUsed, annualLeft, sickUsed, specialUsed, otEntitled, otUsed, otLeft: otEntitled-otUsed }
   }
 
   // ── Calendar ─────────────────────────────────────────────
@@ -432,57 +436,65 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
           <div className="card">
             <div className="card-head">
-              <span className="card-title">Saldo Cuti per Karyawan — 2026</span>
-              <div className="flex items-center gap-2">
-                <button onClick={()=>{setBalForm({...EMPTY_BAL});setShowBalModal(true)}} className="btn btn-ghost btn-sm"><Plus size={12}/> Init Saldo</button>
-                <button onClick={()=>setShowOTModal(true)} className="btn btn-teal btn-sm">+ Tambah Overtime Leave</button>
+              <div className="flex items-center gap-3">
+                <span className="card-title">Saldo Cuti per Karyawan</span>
+                <div className="flex gap-2">
+                  {[2026,2025,2024].map(y=>(
+                    <button key={y} onClick={()=>setSaldoYear(y)}
+                      className={cn('px-3 py-1 rounded-lg text-[11.5px] font-semibold border transition-all',
+                        saldoYear===y?'bg-[#0f1e3d] text-white border-[#0f1e3d]':'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}>
+                      {y}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <button onClick={()=>setShowOTModal(true)} className="btn btn-teal btn-sm">+ Tambah Overtime Leave</button>
             </div>
             <div className="overflow-x-auto">
-              <table className="tbl" style={{minWidth:900}}>
-                <thead><tr>
-                  <th>Karyawan</th><th>Divisi</th><th>Masa Kerja</th>
-                  <th className="text-center bg-teal-50">Tahunan (Hak)</th>
-                  <th className="text-center bg-teal-50">Carry-over</th>
-                  <th className="text-center bg-teal-50">Terpakai</th>
-                  <th className="text-center bg-teal-50">Sisa</th>
-                  <th className="text-center bg-green-50">Overtime</th>
-                  <th className="text-center bg-green-50">OT Terpakai</th>
-                  <th className="text-center bg-green-50">OT Sisa</th>
-                </tr></thead>
+              <table className="tbl" style={{minWidth:1000}}>
+                <thead>
+                  <tr>
+                    <th rowSpan={2}>Karyawan</th>
+                    <th rowSpan={2}>Divisi</th>
+                    <th rowSpan={2}>Masa Kerja</th>
+                    <th colSpan={4} className="text-center bg-teal-50 border-b-0">Cuti Tahunan</th>
+                    <th colSpan={2} className="text-center bg-blue-50 border-b-0">Cuti Khusus</th>
+                    <th colSpan={3} className="text-center bg-green-50 border-b-0">Overtime</th>
+                  </tr>
+                  <tr>
+                    <th className="text-center bg-teal-50 text-[9px]">Hak</th>
+                    <th className="text-center bg-teal-50 text-[9px]">Carry-over</th>
+                    <th className="text-center bg-teal-50 text-[9px]">Terpakai</th>
+                    <th className="text-center bg-teal-50 text-[9px]">Sisa</th>
+                    <th className="text-center bg-blue-50 text-[9px]">Sakit</th>
+                    <th className="text-center bg-blue-50 text-[9px]">Khusus</th>
+                    <th className="text-center bg-green-50 text-[9px]">Hak OT</th>
+                    <th className="text-center bg-green-50 text-[9px]">OT Pakai</th>
+                    <th className="text-center bg-green-50 text-[9px]">OT Sisa</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {employees.map(emp=>{
-                    const bal=getBalance(emp.id)
-                    const annualEntitled = (bal?.annual_entitled??calcAnnualEntitled(emp.join_date))+(bal?.annual_carryover??0)
-                    const annualUsed = bal?.annual_used??getUsed(emp.id,'Tahunan')
-                    const annualLeft = annualEntitled-annualUsed
-                    const otEntitled = bal?.overtime_entitled??0
-                    const otUsed     = bal?.overtime_used??getUsed(emp.id,'Overtime')
-                    const otLeft     = otEntitled-otUsed
-                    const noBalance  = !bal
-
+                    const s = getSaldo(emp.id, saldoYear)
                     return(
-                      <tr key={emp.id} className={noBalance?'bg-amber-50/50':''}>
-                        <td>
-                          <div className="font-semibold text-[12.5px]">{emp.full_name}</div>
-                          {noBalance&&<div className="text-[10px] text-amber-500 font-medium flex items-center gap-1 mt-0.5"><AlertCircle size={10}/> Saldo belum diinit</div>}
-                        </td>
+                      <tr key={emp.id}>
+                        <td className="font-semibold text-[12.5px]">{emp.full_name}</td>
                         <td className="text-[12px] text-slate-400">{emp.division}</td>
                         <td className="text-[12px] text-slate-500">{calcYoS(emp.join_date)}</td>
-                        {/* Annual */}
-                        <td className="text-center"><span className="text-[13px] font-semibold text-slate-800">{annualEntitled}</span></td>
-                        <td className="text-center"><span className="text-[12px] text-slate-500">{bal?.annual_carryover??0}</span></td>
-                        <td className="text-center"><span className="text-[12px] text-slate-600">{annualUsed}</span></td>
+                        <td className="text-center font-semibold">{s.annualEntitled}</td>
+                        <td className="text-center text-slate-500">{s.carryOver}</td>
+                        <td className="text-center text-slate-600">{s.annualUsed}</td>
                         <td className="text-center">
-                          <span className={cn('text-[13px] font-bold',annualLeft<=0?'text-red-600':annualLeft<=3?'text-amber-600':'text-teal-600')}>
-                            {annualLeft}
+                          <span className={cn('text-[13px] font-bold',s.annualLeft<=0?'text-red-600':s.annualLeft<=3?'text-amber-500':'text-teal-600')}>
+                            {s.annualLeft}
                           </span>
                         </td>
-                        {/* Overtime */}
-                        <td className="text-center"><span className="text-[13px] font-semibold text-slate-800">{otEntitled}</span></td>
-                        <td className="text-center"><span className="text-[12px] text-slate-600">{otUsed}</span></td>
+                        <td className="text-center text-slate-500">{s.sickUsed}</td>
+                        <td className="text-center text-slate-500">{s.specialUsed}</td>
+                        <td className="text-center text-slate-600">{s.otEntitled}</td>
+                        <td className="text-center text-slate-500">{s.otUsed}</td>
                         <td className="text-center">
-                          <span className={cn('text-[13px] font-bold',otLeft>0?'text-green-600':'text-slate-300')}>{otLeft}</span>
+                          <span className={cn('text-[13px] font-bold',s.otLeft>0?'text-green-600':'text-slate-300')}>{s.otLeft}</span>
                         </td>
                       </tr>
                     )
@@ -490,9 +502,10 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 </tbody>
               </table>
             </div>
-            <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-4">
-              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-400 inline-block"/><AlertCircle size={11} className="text-amber-500"/> = Saldo belum diinit — klik "Init Saldo" untuk setup</span>
-              <span className="text-teal-600 font-medium">Hak cuti tahunan: &lt;2th = 12hr · 2–5th = 14hr · &gt;5th = 15hr</span>
+            <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-6 flex-wrap">
+              <span>📅 Hak tahunan: <strong>12 hari</strong> · Carry-over max <strong>5 hari</strong>, hangus setelah Juni</span>
+              <span className="text-blue-600">🏥 Sakit & Cuti Khusus tidak mengurangi saldo tahunan</span>
+              <span className="text-green-600">💪 Overtime: divalidasi HC + atasan sebelum ditambahkan</span>
             </div>
           </div>
         </div>
@@ -506,8 +519,11 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               <select value={leaveForm.employee_id} onChange={e=>lf('employee_id',e.target.value)} className="form-input">
                 <option value="">Pilih karyawan...</option>
                 {employees.map(e=>{
-                  const saldo=getSaldo(e.id,'Tahunan')
-                  return <option key={e.id} value={e.id}>{e.full_name} — {e.division} {leaveForm.leave_type==='Tahunan'?`(sisa ${saldo.remaining} hr)`:''}</option>
+                  const s=getSaldo(e.id,new Date().getFullYear())
+                  const info = leaveForm.leave_type==='Tahunan' ? ` · sisa ${s.annualLeft} hr tahunan`
+                             : leaveForm.leave_type==='Overtime' ? ` · sisa ${s.otLeft} hr OT`
+                             : ''
+                  return <option key={e.id} value={e.id}>{e.full_name} — {e.division}{info}</option>
                 })}
               </select>
             </div>
@@ -526,14 +542,28 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
             )}
             {/* Saldo info */}
             {leaveForm.employee_id&&leaveForm.leave_type==='Tahunan'&&(()=>{
-              const saldo=getSaldo(leaveForm.employee_id,'Tahunan')
+              const s=getSaldo(leaveForm.employee_id,new Date().getFullYear())
               return(
-                <div className={cn('rounded-lg px-4 py-3 text-[12px]',saldo.remaining<=0?'bg-red-50 border border-red-200 text-red-700':'bg-teal-50 border border-teal-200 text-teal-700')}>
-                  Saldo cuti tahunan: <strong>{saldo.remaining}</strong> hari tersisa dari {saldo.entitled} hak
-                  {saldo.remaining<leaveForm.total_days&&<div className="text-red-600 font-semibold mt-1">⚠ Saldo tidak cukup!</div>}
+                <div className={cn('rounded-lg px-4 py-3 text-[12px]',s.annualLeft<=0?'bg-red-50 border border-red-200 text-red-700':'bg-teal-50 border border-teal-200 text-teal-700')}>
+                  Saldo cuti tahunan: <strong>{s.annualLeft}</strong> hari tersisa dari {s.annualTotal} total
+                  {s.carryOver>0&&<span className="text-teal-600"> (termasuk {s.carryOver} hr carry-over)</span>}
+                  {s.annualLeft<leaveForm.total_days&&<div className="text-red-600 font-semibold mt-1">⚠ Saldo tidak cukup!</div>}
                 </div>
               )
             })()}
+            {leaveForm.leave_type==='Overtime'&&leaveForm.employee_id&&(()=>{
+              const s=getSaldo(leaveForm.employee_id,new Date().getFullYear())
+              return(
+                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-[12px] text-green-700">
+                  Saldo overtime: <strong>{s.otLeft}</strong> hari tersisa dari {s.otEntitled} hak
+                </div>
+              )
+            })()}
+            {NON_ANNUAL_TYPES.includes(leaveForm.leave_type)&&leaveForm.leave_type!=='Overtime'&&(
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-[12px] text-blue-700">
+                ℹ Cuti {leaveForm.leave_type} tidak mengurangi saldo cuti tahunan
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="form-label">Tanggal Mulai *</label><input type="date" value={leaveForm.start_date} onChange={e=>onDateChange('start_date',e.target.value)} className="form-input"/></div>
               <div><label className="form-label">Tanggal Selesai *</label><input type="date" value={leaveForm.end_date} onChange={e=>onDateChange('end_date',e.target.value)} className="form-input"/></div>
@@ -550,41 +580,6 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={()=>setShowLeaveModal(false)} className="btn btn-ghost">Batal</button>
               <button onClick={saveLeave} disabled={saving} className="btn btn-teal">{saving?'Menyimpan...':editId?'Update':'Simpan'}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* ── MODAL: Init/Edit Saldo ── */}
-      {showBalModal&&(
-        <Modal title="Setup Saldo Cuti Karyawan" onClose={()=>setShowBalModal(false)}>
-          <div className="space-y-3">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-[12px] text-blue-700">
-              Hak tahunan akan dihitung otomatis berdasarkan masa kerja. Override jika diperlukan.
-            </div>
-            <div><label className="form-label">Karyawan *</label>
-              <select value={balForm.employee_id} onChange={e=>{
-                const emp=employees.find(x=>x.id===e.target.value)
-                const entitled=emp?calcAnnualEntitled(emp.join_date):12
-                setBalForm((p:any)=>({...p,employee_id:e.target.value,annual_entitled:entitled}))
-              }} className="form-input">
-                <option value="">Pilih karyawan...</option>
-                {employees.map(e=><option key={e.id} value={e.id}>{e.full_name} — {e.division} ({calcYoS(e.join_date)})</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="form-label">Hak Tahunan (hari)</label><input type="number" value={balForm.annual_entitled} onChange={e=>bf('annual_entitled',parseInt(e.target.value)||12)} className="form-input" min={0}/></div>
-              <div><label className="form-label">Carry-over (max 5 hr)</label><input type="number" value={balForm.annual_carryover} onChange={e=>bf('annual_carryover',Math.min(5,parseInt(e.target.value)||0))} className="form-input" min={0} max={5}/></div>
-            </div>
-            <div><label className="form-label">Tahun</label>
-              <select value={balForm.year} onChange={e=>bf('year',parseInt(e.target.value))} className="form-input">
-                <option value={2026}>2026</option><option value={2025}>2025</option>
-              </select>
-            </div>
-            <div><label className="form-label">Catatan</label><input value={balForm.notes||''} onChange={e=>bf('notes',e.target.value)} className="form-input" placeholder="e.g. Carry-over dari 2025"/></div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={()=>setShowBalModal(false)} className="btn btn-ghost">Batal</button>
-              <button onClick={saveBalance} disabled={saving} className="btn btn-teal">{saving?'Menyimpan...':'Simpan'}</button>
             </div>
           </div>
         </Modal>

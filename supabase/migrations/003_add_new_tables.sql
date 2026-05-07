@@ -121,3 +121,7 @@ CREATE POLICY "service_role_only_leave_balance" ON leave_balance USING (true);
 -- Tambah kolom leave_balance_id di attendance_leave
 ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS balance_id UUID REFERENCES leave_balance(id);
 ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS year INTEGER DEFAULT 2026;
+
+-- Add special_type to attendance_leave
+ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS special_type TEXT;
+ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS notes TEXT;
