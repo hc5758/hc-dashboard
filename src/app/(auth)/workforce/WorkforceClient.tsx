@@ -161,7 +161,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     <td><StatusBadge status={e.status}/></td>
                     <td className="text-[11px] text-slate-400">{fmtDate(e.join_date)}</td>
                     <td className="text-[11px]">{calcYoS(e.join_date)}</td>
-                    <td className={cn('text-[11px]',e.end_date&&new Date(e.end_date)<new Date(Date.now()+30*86400000)?'text-red-600 font-bold':'text-slate-400')}>{fmtDate(e.end_date)||'–'}</td>
+                    <td className={cn('text-[11px]',e.end_date&&new Date(e.end_date)<new Date(Date.now()+60*86400000)?'text-red-600 font-bold':'text-slate-400')}>{fmtDate(e.end_date)||'–'}</td>
                     <td><div className="flex items-center justify-center gap-1">
                       <button onClick={()=>openEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 transition-colors"><Pencil size={12}/></button>
                       <button onClick={()=>deleteEmployee(e.id,e.full_name)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors"><Trash2 size={12}/></button>

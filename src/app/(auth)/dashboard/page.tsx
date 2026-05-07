@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   const active = (employees??[]).filter(e=>e.status==='active')
   const today  = new Date()
 
-  const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=30 })
+  const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 })
     .sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
 
   const onLeaveNow = (leave??[]).filter(l=>{ const s=new Date(l.start_date),e=new Date(l.end_date); return today>=s&&today<=e })
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
           <div className="p-6 flex flex-col justify-center">
             <h2 className="text-white text-xl font-extrabold mb-1">Halo, <span className="text-teal-300">Admin HC!</span> 👋</h2>
             <p className="text-white/40 text-[11px] leading-relaxed mb-4">
-              {expiringContracts.length>0&&<><strong className="text-white">{expiringContracts.length} kontrak</strong> habis dalam 30 hari. </>}
+              {expiringContracts.length>0&&<><strong className="text-white">{expiringContracts.length} kontrak</strong> habis dalam 60 hari. </>}
               {tnaOverdue.length>0&&<><strong className="text-white">{tnaOverdue.length} TNA</strong> overdue.</>}
             </p>
             <div className="flex gap-2">
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-5 gap-3">
           <KPICard label="Total headcount"     value={active.length}                             change="+3 MoM" changeType="up"   accent="bg-teal-400"/>
           <KPICard label="Avg years of service" value={`${avgYoS} yr`}                          change="stabil" changeType="flat" accent="bg-amber-400"/>
-          <KPICard label="Kontrak habis <30hr"  value={expiringContracts.length}                change={expiringContracts.length>0?'urgent':'aman'} changeType={expiringContracts.length>0?'down':'flat'} accent="bg-red-400"/>
+          <KPICard label="Kontrak habis <60hr"  value={expiringContracts.length}                change={expiringContracts.length>0?'urgent':'aman'} changeType={expiringContracts.length>0?'down':'flat'} accent="bg-red-400"/>
           <KPICard label="TNA overdue"          value={tnaOverdue.length}                       change={tnaOverdue.length>0?'perlu action':'aman'} changeType={tnaOverdue.length>0?'down':'flat'} accent="bg-blue-400"/>
           <KPICard label="Payroll Mei"          value={`Rp ${Math.round(totalSalary/1_000_000)} Jt`} change="+4.2% MoM" changeType="up" accent="bg-purple-400"/>
         </div>
@@ -96,7 +96,7 @@ export default async function DashboardPage() {
               ))}
           </div>
           <div className="card">
-            <div className="card-head"><span className="card-title">Kontrak habis &lt;30hr</span><Badge variant="red">{expiringContracts.length}</Badge></div>
+            <div className="card-head"><span className="card-title">Kontrak habis &lt;60hr</span><Badge variant="red">{expiringContracts.length}</Badge></div>
             {expiringContracts.length===0
               ? <div className="px-5 py-6 text-center text-[11px] text-slate-300">Semua kontrak aman ✓</div>
               : expiringContracts.slice(0,5).map(c=>{ const d=daysUntil(c.end_date); return (

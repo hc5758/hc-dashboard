@@ -177,7 +177,7 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
           <table className="tbl" style={{minWidth:1000}}>
             <thead>
               <tr style={{background:'#0f1e3d'}}>
-                {['Position','Closing Name','Request Date','OL Signed Date','Join Date','Hiring Progress','Hiring Process','On Progress Hiring','Remarks','Budget','Notes','Aksi'].map(h=>(
+                {['Position','PIC HC','Request Date','OL Signed Date','Join Date','Hiring Progress','Hiring Process','On Progress Hiring','Remarks','Budget','Notes','Closing Name','Aksi'].map(h=>(
                   <th key={h} style={{color:'rgba(255,255,255,0.7)',background:'#0f1e3d',borderColor:'#1a2d5a',fontSize:'10.5px',fontWeight:600,letterSpacing:'0.04em',textTransform:'uppercase',textAlign:h==='Aksi'?'center':'left'}}>
                     {h}
                   </th>
@@ -205,7 +205,12 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
                       </button>
                     </td>
 
-                    <td className="text-[12.5px] text-slate-600" style={{minWidth:120}}>{r.pic_name||'–'}</td>
+                    {/* PIC HC — yang ngurus */}
+                    <td style={{minWidth:130}}>
+                      <input defaultValue={r.pic_name||''} onBlur={e=>updateField(r.id,'pic_name',e.target.value)}
+                        className="text-[12.5px] text-slate-700 font-medium bg-transparent outline-none border-b border-transparent hover:border-slate-200 focus:border-teal-400 w-full py-0.5"
+                        placeholder="Nama PIC..."/>
+                    </td>
 
                     {/* Request Date — inline edit */}
                     <td style={{minWidth:120}}>
@@ -269,13 +274,6 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
                       </select>
                     </td>
 
-                    {/* On Progress Hiring */}
-                    <td style={{minWidth:140}}>
-                      <input defaultValue={r.on_progress_hiring||''} onBlur={e=>updateField(r.id,'on_progress_hiring',e.target.value)}
-                        className="text-[12px] text-slate-600 bg-transparent outline-none border-b border-transparent hover:border-slate-200 focus:border-teal-400 w-full py-0.5"
-                        placeholder="Nama kandidat..."/>
-                    </td>
-
                     {/* Remarks */}
                     <td style={{minWidth:130}}>
                       <input defaultValue={r.remarks||''} onBlur={e=>updateField(r.id,'remarks',e.target.value)}
@@ -294,6 +292,14 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
                       <input defaultValue={r.notes||''} onBlur={e=>updateField(r.id,'notes',e.target.value)}
                         className="text-[12px] text-slate-600 bg-transparent outline-none border-b border-transparent hover:border-slate-200 focus:border-teal-400 w-full py-0.5"
                         placeholder="Catatan..."/>
+                    </td>
+
+                    {/* Closing Name — nama kandidat yang akhirnya diclose/hire */}
+                    <td style={{minWidth:130}}>
+                      <input defaultValue={r.on_progress_hiring||''} onBlur={e=>updateField(r.id,'on_progress_hiring',e.target.value)}
+                        className={cn('text-[12px] bg-transparent outline-none border-b border-transparent hover:border-slate-200 focus:border-teal-400 w-full py-0.5',
+                          r.on_progress_hiring?'text-teal-700 font-semibold':'text-slate-300')}
+                        placeholder="Nama kandidat final..."/>
                     </td>
 
                     <td>
