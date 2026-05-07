@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
-import { KPICard, Badge, InsightCard } from '@/components/ui'
-import { fmtDate, daysUntil, calcYoSDecimal } from '@/lib/utils'
+import { Badge } from '@/components/ui'
+import { fmtDate, daysUntil, calcYoSDecimal, fmtCurrencyShort } from '@/lib/utils'
 import OnboardingTable from './OnboardingTable'
 
 export default async function DashboardPage() {
@@ -22,132 +22,246 @@ export default async function DashboardPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').eq('year',2026).eq('month',5),
   ])
 
-  const active = (employees??[]).filter(e=>e.status==='active')
-  const today  = new Date()
-
-  const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 })
-    .sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
-
-  const onLeaveNow = (leave??[]).filter(l=>{ const s=new Date(l.start_date),e=new Date(l.end_date); return today>=s&&today<=e })
-  const openRec    = (recruitment??[]).filter(r=>['Open','In Progress','Offering'].includes(r.status))
+  const active  = (employees??[]).filter(e=>e.status==='active')
+  const today   = new Date()
+  const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 }).sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
+  const openRec    = (recruitment??[]).filter(r=>['Open','In Progress','Offering'].includes(r.status||r.hiring_process||''))
   const tnaOverdue = (tna??[]).filter(t=>t.status==='Overdue')
   const totalSalary = (salary??[]).reduce((s,r)=>s+(r.net_salary??0),0)
-  const avgYoS = active.length>0 ? (active.reduce((s,e)=>s+calcYoSDecimal(e.join_date),0)/active.length).toFixed(1) : '0'
+  const avgYoS = active.length>0?(active.reduce((s,e)=>s+calcYoSDecimal(e.join_date),0)/active.length).toFixed(1):'0'
+  const onLeaveToday = (leave??[]).filter(l=>{ const s=new Date(l.start_date),e=new Date(l.end_date); return today>=s&&today<=e })
+  const resignQ2 = (offboarding??[]).filter(o=>o.offboard_type==='Resign').length
+  const hired = (recruitment??[]).filter(r=>r.status==='Hired'||r.hiring_process==='Joined').length
+
+  const KPIs = [
+    { label:'Total Headcount',     value: active.length,                       sub:'+3 MoM',           icon:'👥', color:'bg-teal-500',   light:'bg-teal-50',   text:'text-teal-700',   href:'/workforce' },
+    { label:'Avg Years of Service',value: `${avgYoS} yr`,                      sub:'rata-rata',        icon:'⏱',  color:'bg-amber-500',  light:'bg-amber-50',  text:'text-amber-700',  href:null },
+    { label:'Kontrak Habis <60hr', value: expiringContracts.length,            sub: expiringContracts.length>0?'urgent':'semua aman', icon:'📋', color:'bg-red-500', light:'bg-red-50', text:'text-red-700', href:'/workforce' },
+    { label:'TNA Overdue',         value: tnaOverdue.length,                   sub: tnaOverdue.length>0?'perlu action':'aman',  icon:'📚', color:'bg-blue-500', light:'bg-blue-50', text:'text-blue-700', href:'/learning' },
+    { label:'Payroll Mei 2026',    value: fmtCurrencyShort(totalSalary),       sub:'+4.2% MoM',        icon:'💰', color:'bg-purple-500', light:'bg-purple-50', text:'text-purple-700', href:'/payroll' },
+  ]
 
   return (
     <div className="page-wrapper">
       <Topbar title="Dashboard" subtitle="Q2 · 2026"/>
       <div className="page-content">
 
-        {/* Hero */}
-        <div className="bg-[#0f1e3d] rounded-2xl grid grid-cols-2 min-h-[130px]">
-          <div className="p-6 flex flex-col justify-center">
-            <h2 className="text-white text-xl font-extrabold mb-1">Halo, <span className="text-teal-300">Admin HC!</span> 👋</h2>
-            <p className="text-white/40 text-[11px] leading-relaxed mb-4">
-              {expiringContracts.length>0&&<><strong className="text-white">{expiringContracts.length} kontrak</strong> habis dalam 60 hari. </>}
-              {tnaOverdue.length>0&&<><strong className="text-white">{tnaOverdue.length} TNA</strong> overdue.</>}
-            </p>
-            <div className="flex gap-2">
-              <a href="/recruitment" className="btn btn-teal btn-sm">Pipeline recruitment</a>
-              <a href="/workforce" className="btn btn-ghost btn-sm">Data karyawan</a>
-            </div>
-          </div>
-          <div className="border-l border-white/8 grid grid-cols-3 divide-x divide-white/8">
-            {[
-              {n:active.length,l:'Total aktif',c:'text-teal-300'},
-              {n:active.filter(e=>e.employment_type==='PKWTT').length,l:'Karyawan tetap',c:'text-blue-300'},
-              {n:(offboarding??[]).filter(o=>o.offboard_type==='Resign').length,l:'Resign Q2',c:'text-red-300'},
-            ].map((s,i)=>(
-              <div key={i} className="p-5 flex flex-col justify-center">
-                <div className={`text-3xl font-extrabold leading-none ${s.c}`}>{s.n}</div>
-                <div className="text-white/30 text-[10px] mt-1.5">{s.l}</div>
+        {/* ── HERO ── */}
+        <div className="rounded-2xl bg-[#0f1e3d] overflow-hidden relative">
+          {/* decorative circles */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-400/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none"/>
+          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-blue-400/5 rounded-full translate-y-1/2 pointer-events-none"/>
+
+          <div className="relative grid grid-cols-12">
+            {/* Left: greeting */}
+            <div className="col-span-5 p-7 flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">👋</span>
+                <h2 className="text-white text-[22px] font-bold">Halo, <span className="text-teal-300">Admin HC!</span></h2>
               </div>
-            ))}
-          </div>
-        </div>
+              <p className="text-white/50 text-[12.5px] leading-relaxed mb-5 max-w-sm">
+                {expiringContracts.length>0&&<span className="text-amber-300 font-semibold">{expiringContracts.length} kontrak</span>} {expiringContracts.length>0&&'habis dalam 60 hari. '}
+                {tnaOverdue.length>0&&<><span className="text-red-300 font-semibold">{tnaOverdue.length} TNA</span> masih overdue. </>}
+                {onLeaveToday.length>0&&<><span className="text-blue-300 font-semibold">{onLeaveToday.length} karyawan</span> cuti hari ini.</>}
+                {expiringContracts.length===0&&tnaOverdue.length===0&&onLeaveToday.length===0&&'Semua berjalan lancar hari ini! 🎉'}
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <a href="/recruitment" className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-400 hover:bg-teal-300 text-[#0f1e3d] text-[12px] font-bold rounded-lg transition-colors">
+                  🎯 Pipeline Recruitment
+                </a>
+                <a href="/workforce" className="inline-flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold rounded-lg transition-colors border border-white/20">
+                  👥 Data Karyawan
+                </a>
+              </div>
+            </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-5 gap-3">
-          <KPICard label="Total headcount"     value={active.length}                             change="+3 MoM" changeType="up"   accent="bg-teal-400"/>
-          <KPICard label="Avg years of service" value={`${avgYoS} yr`}                          change="stabil" changeType="flat" accent="bg-amber-400"/>
-          <KPICard label="Kontrak habis <60hr"  value={expiringContracts.length}                change={expiringContracts.length>0?'urgent':'aman'} changeType={expiringContracts.length>0?'down':'flat'} accent="bg-red-400"/>
-          <KPICard label="TNA overdue"          value={tnaOverdue.length}                       change={tnaOverdue.length>0?'perlu action':'aman'} changeType={tnaOverdue.length>0?'down':'flat'} accent="bg-blue-400"/>
-          <KPICard label="Payroll Mei"          value={`Rp ${Math.round(totalSalary/1_000_000)} Jt`} change="+4.2% MoM" changeType="up" accent="bg-purple-400"/>
-        </div>
+            {/* Divider */}
+            <div className="col-span-1 flex items-center justify-center">
+              <div className="w-px h-3/4 bg-white/10"/>
+            </div>
 
-        {/* 3 col */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2 card">
-            <div className="card-head"><span className="card-title">Pipeline recruitment terbuka</span><Badge variant="blue">{openRec.length} posisi</Badge></div>
-            {openRec.length===0
-              ? <div className="px-5 py-6 text-center text-[11px] text-slate-300">Tidak ada posisi terbuka</div>
-              : openRec.slice(0,4).map(r=>(
-                <div key={r.id} className="flex items-center gap-3 px-5 py-2.5 border-b border-slate-50 last:border-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-bold text-slate-800 truncate">{r.position}</div>
-                    <div className="text-[10px] text-slate-300">{r.division} · {r.entity}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-base font-extrabold text-teal-600">{r.total_applicants}</div>
-                    <div className="text-[9px] text-slate-300">kandidat</div>
-                  </div>
-                  <Badge variant={(r.status==='Offering'?'purple':'blue') as any}>{r.status}</Badge>
+            {/* Right: stat blocks */}
+            <div className="col-span-6 grid grid-cols-3 divide-x divide-white/10">
+              {[
+                { n: active.length,                                                        label:'Karyawan Aktif',     icon:'✅', color:'text-teal-300' },
+                { n: active.filter(e=>e.employment_type==='PKWTT').length,                 label:'Karyawan Tetap',     icon:'🏢', color:'text-blue-300' },
+                { n: resignQ2,                                                             label:'Resign Q2 2026',     icon:'🚪', color:'text-red-300' },
+                { n: openRec.length,                                                       label:'Posisi Terbuka',     icon:'🔎', color:'text-amber-300' },
+                { n: hired,                                                                label:'Hired YTD',          icon:'🎉', color:'text-teal-300' },
+                { n: (pip??[]).length,                                                     label:'PIP/SP Aktif',       icon:'⚠️', color:'text-orange-300' },
+              ].map((s,i)=>(
+                <div key={i} className="p-5 flex flex-col justify-center hover:bg-white/5 transition-colors">
+                  <div className="text-[18px] mb-0.5">{s.icon}</div>
+                  <div className={`text-3xl font-bold leading-none mb-1 ${s.color}`}>{s.n}</div>
+                  <div className="text-white/40 text-[10.5px] font-medium">{s.label}</div>
                 </div>
               ))}
-          </div>
-          <div className="card">
-            <div className="card-head"><span className="card-title">Kontrak habis &lt;60hr</span><Badge variant="red">{expiringContracts.length}</Badge></div>
-            {expiringContracts.length===0
-              ? <div className="px-5 py-6 text-center text-[11px] text-slate-300">Semua kontrak aman ✓</div>
-              : expiringContracts.slice(0,5).map(c=>{ const d=daysUntil(c.end_date); return (
-                <div key={c.id} className="flex items-center gap-2.5 px-4 py-2 border-b border-slate-50 last:border-0">
-                  <div className="text-center min-w-[28px]">
-                    <div className={`text-[16px] font-extrabold leading-none ${d<=7?'text-red-600':d<=14?'text-amber-600':'text-teal-600'}`}>{d}</div>
-                    <div className="text-[8px] text-slate-300">hari</div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[11.5px] font-bold text-slate-800 truncate">{c.employee?.full_name}</div>
-                    <div className="text-[10px] text-slate-300">{c.employee?.division}</div>
-                  </div>
-                </div>
-              )})}
+            </div>
           </div>
         </div>
 
-        {/* Interactive onboarding checklist */}
+        {/* ── KPI CARDS ── */}
+        <div className="grid grid-cols-5 gap-3">
+          {KPIs.map((k,i)=>(
+            <a key={i} href={k.href||'#'}
+              className="card p-4 flex items-start gap-3 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0 ${k.light}`}>
+                {k.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10.5px] text-slate-400 font-medium mb-1">{k.label}</div>
+                <div className="text-[22px] font-bold text-slate-900 leading-none">{k.value}</div>
+                <div className={`text-[10.5px] font-semibold mt-1.5 ${k.text}`}>{k.sub}</div>
+              </div>
+              <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${k.color}`}/>
+            </a>
+          ))}
+        </div>
+
+        {/* ── MAIN CONTENT: 3 columns ── */}
+        <div className="grid grid-cols-3 gap-4">
+
+          {/* Recruitment pipeline */}
+          <div className="col-span-2 card">
+            <div className="card-head">
+              <span className="card-title">Pipeline Recruitment Aktif</span>
+              <div className="flex items-center gap-2">
+                <Badge variant="blue">{openRec.length} posisi</Badge>
+                <a href="/recruitment" className="text-[11px] text-teal-600 hover:underline font-semibold">Lihat semua →</a>
+              </div>
+            </div>
+            {openRec.length===0
+              ? <div className="px-5 py-8 text-center text-[12px] text-slate-400">Tidak ada posisi terbuka</div>
+              : openRec.slice(0,5).map(r=>{
+                const hp = r.hiring_process||r.status||'Open'
+                const pct = {Open:5,Screening:25,Interview:50,Offering:70,'OL Signed':85,Joined:100,'In Progress':35}[hp]??20
+                return(
+                  <a key={r.id} href="/recruitment"
+                    className="flex items-center gap-4 px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold text-slate-800 truncate">{r.position}</div>
+                      <div className="text-[10.5px] text-slate-400 mt-0.5">{r.division} · {r.entity}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 min-w-[120px]">
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[10px] text-slate-400">{hp}</span>
+                        <span className="text-[10px] font-bold text-slate-600">{pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-400 rounded-full" style={{width:`${pct}%`}}/>
+                      </div>
+                    </div>
+                    {r.total_applicants>0&&(
+                      <div className="text-center flex-shrink-0">
+                        <div className="text-[15px] font-bold text-teal-600">{r.total_applicants}</div>
+                        <div className="text-[9px] text-slate-400">kandidat</div>
+                      </div>
+                    )}
+                  </a>
+                )
+              })
+            }
+          </div>
+
+          {/* Kontrak + Cuti hari ini */}
+          <div className="flex flex-col gap-4">
+            {/* Kontrak habis */}
+            <div className="card flex-1">
+              <div className="card-head">
+                <span className="card-title">Kontrak Habis &lt;60hr</span>
+                <Badge variant={expiringContracts.length>0?'red':'teal'}>{expiringContracts.length}</Badge>
+              </div>
+              {expiringContracts.length===0
+                ? <div className="px-5 py-5 flex items-center gap-3">
+                    <div className="text-2xl">✅</div>
+                    <div className="text-[12px] text-slate-500">Semua kontrak aman</div>
+                  </div>
+                : expiringContracts.slice(0,4).map(c=>{ const d=daysUntil(c.end_date); return(
+                  <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-0">
+                    <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${d<=7?'bg-red-50':d<=14?'bg-amber-50':'bg-slate-50'}`}>
+                      <div className={`text-[15px] font-bold leading-none ${d<=7?'text-red-600':d<=14?'text-amber-600':'text-slate-600'}`}>{d}</div>
+                      <div className="text-[8px] text-slate-400">hari</div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-semibold text-slate-800 truncate">{c.employee?.full_name}</div>
+                      <div className="text-[10.5px] text-slate-400">{c.employee?.division}</div>
+                    </div>
+                  </div>
+                )})
+              }
+            </div>
+
+            {/* Cuti hari ini */}
+            <div className="card">
+              <div className="card-head">
+                <span className="card-title">Cuti Hari Ini</span>
+                <Badge variant={onLeaveToday.length>0?'amber':'gray'}>{onLeaveToday.length} orang</Badge>
+              </div>
+              {onLeaveToday.length===0
+                ? <div className="px-5 py-3 text-[12px] text-slate-400">Tidak ada yang cuti hari ini</div>
+                : onLeaveToday.slice(0,3).map(l=>(
+                  <div key={l.id} className="flex items-center gap-3 px-4 py-2 border-b border-slate-50 last:border-0">
+                    <div className="w-7 h-7 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-bold text-[10px] flex-shrink-0">
+                      {l.employee?.full_name?.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12px] font-semibold text-slate-800 truncate">{l.employee?.full_name}</div>
+                      <div className="text-[10px] text-slate-400">{l.leave_type}</div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+
+        {/* ── ONBOARDING CHECKLIST ── */}
         <OnboardingTable onboarding={onboarding??[]}/>
 
-        {/* PIP aktif */}
-        {(pip??[]).length>0&&(
-          <div className="card">
-            <div className="card-head"><span className="card-title">PIP / SP monitoring aktif</span><Badge variant="red">{pip?.length} karyawan</Badge></div>
-            <div className="overflow-x-auto">
+        {/* ── PIP + Insights side by side ── */}
+        <div className="grid grid-cols-3 gap-4">
+          {/* PIP */}
+          {(pip??[]).length>0&&(
+            <div className="col-span-2 card">
+              <div className="card-head">
+                <span className="card-title">PIP / SP Monitoring Aktif</span>
+                <Badge variant="red">{pip?.length} karyawan</Badge>
+              </div>
               <table className="tbl">
-                <thead><tr><th>Karyawan</th><th>Divisi</th><th>Tipe</th><th>Mulai</th><th>Deadline</th><th>Rencana</th><th>Status</th></tr></thead>
+                <thead><tr><th>Karyawan</th><th>Divisi</th><th>Tipe</th><th>Mulai</th><th>Deadline</th><th>Rencana Perbaikan</th></tr></thead>
                 <tbody>
                   {(pip??[]).map(p=>(
                     <tr key={p.id}>
-                      <td className="font-bold">{p.employee?.full_name}</td>
-                      <td className="text-slate-400 text-[11px]">{p.employee?.division}</td>
+                      <td className="font-semibold">{p.employee?.full_name}</td>
+                      <td className="text-slate-400 text-[11.5px]">{p.employee?.division}</td>
                       <td><Badge variant={p.type==='PIP'?'red':'amber'}>{p.type}</Badge></td>
-                      <td className="text-slate-400 text-[11px]">{fmtDate(p.issue_date)}</td>
-                      <td className="text-slate-400 text-[11px]">{fmtDate(p.end_date)}</td>
-                      <td className="text-slate-600 text-[11px] max-w-[180px]"><span className="line-clamp-1">{p.improvement_plan??'–'}</span></td>
-                      <td><Badge variant="amber">{p.status}</Badge></td>
+                      <td className="text-slate-400 text-[11.5px]">{fmtDate(p.issue_date)}</td>
+                      <td className="text-slate-400 text-[11.5px]">{fmtDate(p.end_date)}</td>
+                      <td className="text-slate-500 text-[11.5px] max-w-[200px]"><span className="line-clamp-1">{p.improvement_plan??'–'}</span></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Insights */}
-        <div className="grid grid-cols-3 gap-3">
-          <InsightCard title="Headcount growth sehat" text="Momentum +7.9% MoM driven oleh hiring Creative & Social Media. Target Q2 adalah 45 headcount."/>
-          <InsightCard title={`${tnaOverdue.length} TNA overdue`} text="Perlu koordinasi dengan manager untuk akselerasi penyelesaian training yang sudah melewati deadline." color="bg-amber-700/80" titleColor="text-amber-200"/>
-          <InsightCard title="Social Media: triple concern" text="Turnover 14.3%, engagement terendah (2.9/5), absensi tertinggi (8.2%). Perlu intervensi menyeluruh." color="bg-red-900/70" titleColor="text-red-300"/>
+          {/* Insights */}
+          <div className={`flex flex-col gap-3 ${(pip??[]).length>0?'':'col-span-3 grid grid-cols-3'}`}>
+            <div className="rounded-xl bg-[#0f1e3d] p-5">
+              <div className="text-teal-300 text-[12px] font-semibold mb-2">📈 Headcount Growth</div>
+              <div className="text-white/60 text-[11.5px] leading-relaxed">Momentum +7.9% MoM driven oleh hiring Creative & Social Media. Target Q2 adalah 45 headcount.</div>
+            </div>
+            <div className="rounded-xl bg-amber-700/80 p-5">
+              <div className="text-amber-200 text-[12px] font-semibold mb-2">📚 {tnaOverdue.length} TNA Overdue</div>
+              <div className="text-white/60 text-[11.5px] leading-relaxed">Perlu koordinasi dengan manager untuk akselerasi penyelesaian training yang melewati deadline.</div>
+            </div>
+            <div className="rounded-xl bg-red-900/70 p-5">
+              <div className="text-red-300 text-[12px] font-semibold mb-2">🚨 Social Media: Triple Concern</div>
+              <div className="text-white/60 text-[11.5px] leading-relaxed">Turnover 14.3%, engagement terendah (2.9/5), absensi tertinggi (8.2%). Perlu intervensi.</div>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   )
