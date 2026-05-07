@@ -56,3 +56,27 @@ ALTER TABLE recruitment ADD COLUMN IF NOT EXISTS remarks             TEXT;
 
 -- Selesai ✓
 SELECT 'Migration berhasil!' AS status;
+
+-- ── ADD NEW ONBOARDING COLUMNS ────────────────────────────
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS akses              BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS hc_onboarding      BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS gnowbe             BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perkenalan_tim     BOOLEAN DEFAULT false;
+-- Sub perkenalan tim
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_project       BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_account       BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_strategist    BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_creative      BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_kom           BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_data          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_finance_bcbs  BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_community     BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS perk_sosmed        BOOLEAN DEFAULT false;
+-- Probation
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS probation_plan     BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_1          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_2          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_3          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_4          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_5          BOOLEAN DEFAULT false;
+ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS final_review       BOOLEAN DEFAULT false;
