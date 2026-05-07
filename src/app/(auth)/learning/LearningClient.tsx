@@ -11,6 +11,7 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
   const router = useRouter()
   const [tna, setTna] = useState(init)
   const [search, setSearch] = useState('')
+  const [filterYear, setFilterYear] = useState(2026)
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -19,12 +20,14 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
   const fv = (k:string,v:any) => setForm((p:any)=>({...p,[k]:v}))
   const flash = (t:string)=>{ setMsg(t); setTimeout(()=>setMsg(''),4000) }
 
-  const done = tna.filter(t=>t.status==='Done')
-  const overdue = tna.filter(t=>t.status==='Overdue')
+  // Filter by tahun
+  const tnaYear = tna.filter(t => !t.year || t.year === filterYear)
+  const done    = tnaYear.filter(t=>t.status==='Done')
+  const overdue = tnaYear.filter(t=>t.status==='Overdue')
 
-  // Per-employee summary
+  // Per-employee summary — filtered by year
   const empSummary = employees.map(e=>{
-    const et=tna.filter(t=>t.employee_id===e.id)
+    const et=tnaYear.filter(t=>t.employee_id===e.id)
     const ed=et.filter(t=>t.status==='Done').length
     const pct=et.length>0?Math.round(ed/et.length*100):0
     const hasOverdue=et.some(t=>t.status==='Overdue')
@@ -51,7 +54,8 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
     if(!form.employee_id||!form.training_name){alert('Karyawan dan nama training wajib diisi');return}
     setSaving(true)
     try{
-      const res=await fetch('/api/tna',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+      const payload = {...form, year: filterYear}
+      const res=await fetch('/api/tna',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       const data=await res.json();if(!res.ok)throw new Error(data.error)
       const emp=employees.find(e=>e.id===form.employee_id)
       setTna(prev=>[{...data.data,employee:emp},...prev])
@@ -61,7 +65,7 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
   }
 
   function exportXls(){
-    const rows=tna.map(t=>{
+    const rows=tnaYear.map(t=>{
       const emp=employees.find(e=>e.id===t.employee_id)
       return {'Nama':emp?.full_name||t.employee_id,'Divisi':emp?.division||'','Training':t.training_name,'Kategori':t.training_category||'','Metode':t.training_method||'','Quarter':t.quarter||'','Tahun':t.year||'','Target Date':t.target_date||'','Status':t.status,'Score':t.score||'','Vendor':t.vendor||'','Durasi (jam)':t.duration_hours||'','Catatan':t.notes||''}
     })
@@ -95,14 +99,24 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
     <div className="space-y-5">
       <div className="grid grid-cols-4 gap-3">
         <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 font-bold text-lg">78%</div><div><div className="text-[11px] text-slate-400">Participation rate</div><div className="text-[13px] font-semibold">vs 65% Q1</div></div></div>
-        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-lg">{tna.length>0?`${Math.round(done.length/tna.length*100)}%`:'0%'}</div><div><div className="text-[11px] text-slate-400">Completion rate</div><div className="text-[13px] font-semibold">target 80%</div></div></div>
+        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-lg">{tnaYear.length>0?`${Math.round(done.length/tnaYear.length*100)}%`:'0%'}</div><div><div className="text-[11px] text-slate-400">Completion rate</div><div className="text-[13px] font-semibold">target 80%</div></div></div>
         <div className="card p-4 flex items-center gap-3"><div className={cn('w-11 h-11 rounded-full flex items-center justify-center font-bold text-lg',overdue.length>0?'bg-red-50 text-red-500':'bg-teal-50 text-teal-600')}>{overdue.length}</div><div><div className="text-[11px] text-slate-400">TNA overdue</div><div className="text-[13px] font-semibold">{overdue.length>0?'perlu action':'aman'}</div></div></div>
-        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-lg">{done.reduce((s,t)=>s+(t.duration_hours??8),0)}</div><div><div className="text-[11px] text-slate-400">Total jam training</div><div className="text-[13px] font-semibold">YTD 2026</div></div></div>
+        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-lg">{done.reduce((s,t)=>s+(t.duration_hours??8),0)}</div><div><div className="text-[11px] text-slate-400">Total jam training</div><div className="text-[13px] font-semibold">YTD {filterYear}</div></div></div>
       </div>
 
       {/* Header + actions */}
       <div className="flex items-center gap-3">
         <h2 className="text-[14px] font-semibold text-slate-800">Training per Karyawan</h2>
+        {/* Year filter */}
+        <div className="flex gap-2 ml-2">
+          {[2026,2025,2024].map(y=>(
+            <button key={y} onClick={()=>setFilterYear(y)}
+              className={cn('px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all',
+                filterYear===y?'bg-[#0f1e3d] text-white border-[#0f1e3d]':'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}>
+              {y}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1.5 w-48">
           <Search size={12} className="text-slate-300"/>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama atau divisi..."
