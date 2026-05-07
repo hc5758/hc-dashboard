@@ -23,7 +23,7 @@ const SCORES_BY_YEAR: Record<number, Record<string,number>> = {
 }
 const EMPTY_PIP = { employee_id:'', pic_name:'', type:'SP1', issue_date:'', end_date:'', reason:'', improvement_plan:'', status:'Active' }
 
-export default function PerformanceClient({ pip: initPip, employees, tna }: { pip:any[]; employees:any[]; tna:any[] }) {
+export default function PerformanceClient({ pip: initPip, employees, tna, scores: initScores }: { pip:any[]; employees:any[]; tna:any[]; scores:any[] }) {
   const router = useRouter()
   const [pip, setPip] = useState(initPip)
   const [year, setYear] = useState(2026)
@@ -33,9 +33,29 @@ export default function PerformanceClient({ pip: initPip, employees, tna }: { pi
   const [form, setForm] = useState<any>(EMPTY_PIP)
   const fv = (k:string,v:any) => setForm((p:any)=>({...p,[k]:v}))
 
-  const scores = SCORES_BY_YEAR[year] ?? SCORES_BY_YEAR[2026]
-  const teams = TEAMS_BASE.map(t=>({...t, score: scores[t.div]??3.0, top: Math.floor(t.members*0.2)}))
-    .sort((a,b)=>b.score-a.score)
+  // Avg score per divisi dari DB, fallback ke hardcoded
+  const divisionScores = (() => {
+    const yearScores = initScores.filter(s=>s.year===year)
+    if (yearScores.length === 0) return SCORES_BY_YEAR[year] ?? SCORES_BY_YEAR[2026]
+    const byDiv: Record<string,number[]> = {}
+    yearScores.forEach(s=>{
+      const div = s.employee?.division; if(!div) return
+      if(!byDiv[div]) byDiv[div]=[]
+      byDiv[div].push(parseFloat(s.score)/20) // 0-100 → 0-5
+    })
+    const result: Record<string,number> = {}
+    Object.entries(byDiv).forEach(([div,arr])=>{
+      result[div]=Math.round((arr.reduce((a,b)=>a+b,0)/arr.length)*10)/10
+    })
+    return { ...(SCORES_BY_YEAR[year]??SCORES_BY_YEAR[2026]), ...result }
+  })()
+
+  const teams = TEAMS_BASE.map(t=>({
+    ...t,
+    score: divisionScores[t.div]??3.0,
+    top: Math.floor(t.members*0.2),
+    hasRealData: initScores.some(s=>s.year===year&&s.employee?.division===t.div),
+  })).sort((a,b)=>b.score-a.score)
 
   const avgTrainingScore = tna&&tna.length>0?(tna.reduce((s,t)=>s+(t.score??0),0)/tna.length).toFixed(1):'–'
 

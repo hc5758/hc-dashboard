@@ -23,16 +23,13 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
   // Filter by tahun
   const offFiltered = filterYear ? offboarding.filter(o => o.year === filterYear || new Date(o.effective_date||o.report_date||'').getFullYear() === filterYear) : offboarding
 
-  // Available years
-  const years = Array.from(new Set(offboarding.map(o => o.year || new Date(o.effective_date||o.report_date||'').getFullYear()).filter(Boolean))).sort((a:any,b:any)=>b-a)
-
   const total = offFiltered.length
   const turnoverRate = active.length>0 ? ((total/(active.length+total))*100).toFixed(1) : '0'
 
   const byDiv: Record<string,number> = {}
   offFiltered.forEach(o=>{ const d=o.employee?.division??'Unknown'; byDiv[d]=(byDiv[d]||0)+1 })
-  const divData = Object.entries(byDiv).sort((a,b)=>b[1]-a[1])
-  const maxDiv = divData[0]?.[1]||1
+  const divData = Object.entries(byDiv).sort((a,b)=>(b[1] as number)-(a[1] as number))
+  const maxDiv = (divData[0]?.[1] as number)||1
 
   function openAdd() { setForm({...EMPTY}); setEditId(null); setShowModal(true) }
   function openEdit(o:any) {

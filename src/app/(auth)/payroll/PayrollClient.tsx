@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, Download, Upload } from 'lucide-react'
 import { Badge, InlineBar, InsightCard, EmptyState } from '@/components/ui'
 import { fmtCurrencyShort, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
@@ -54,8 +54,38 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
   const [form, setForm]               = useState<any>(EMPTY)
   const [msg, setMsg]                 = useState('')
   const [showManualOverride, setShowManualOverride] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const fv  = (k:string,v:any) => setForm((p:any)=>({...p,[k]:v}))
   const flash = (t:string) => { setMsg(t); setTimeout(()=>setMsg(''),4000) }
+
+  async function importXls(e: React.ChangeEvent<HTMLInputElement>){
+    const file=e.target.files?.[0]; if(!file)return
+    flash('Membaca file...')
+    try{
+      const buf=await file.arrayBuffer(); const wb=XLSX.read(buf)
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      let count=0
+      for(const row of rows){
+        const empName=row['Nama']||''
+        const emp=employees.find(ex=>ex.full_name.toLowerCase()===empName.toLowerCase())
+        if(!emp) continue
+        const basic=parseInt(row['Gaji Pokok'])||0
+        const allowance=parseInt(row['Tunjangan'])||0
+        const ot=parseInt(row['Lembur'])||0
+        const bonus=parseInt(row['Bonus'])||0
+        const {bpjsTK,bpjsKes}=calcBPJS(basic)
+        const bruto=basic+allowance+ot+bonus
+        const pph=calcPPh21(bruto,bpjsTK,bpjsKes)
+        const mIdx=MONTHS_ID.indexOf(row['Bulan']||'')
+        const payload={employee_id:emp.id,year:parseInt(row['Tahun'])||filterYear,month:mIdx>0?mIdx:filterMonth,basic_salary:basic,allowance,overtime:ot,bonus,bpjs_ketenagakerjaan:parseInt(row['BPJS TK'])||bpjsTK,bpjs_kesehatan:parseInt(row['BPJS Kes'])||bpjsKes,pph21:parseInt(row['PPh21'])||pph,net_salary:parseInt(row['Net Salary'])||bruto-bpjsTK-bpjsKes-pph,payment_date:row['Tgl Bayar']||null}
+        const res=await fetch('/api/salary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+        const data=await res.json()
+        if(res.ok&&data.data){setSalary(prev=>[{...data.data,employee:emp},...prev]);count++}
+      }
+      flash(`✓ ${count} data salary berhasil diimport`)
+    }catch(err:any){flash(`✗ Error: ${err.message}`)}
+    if(fileRef.current) fileRef.current.value=''
+  }
 
   // Auto-kalkulasi saat gaji pokok / komponen berubah
   function handleSalaryChange(k:string, val:number) {
@@ -248,6 +278,8 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
           </div>
           <div className="flex items-center gap-2">
             {msg&&<span className={cn('text-[11px] font-medium',msg.startsWith('✓')?'text-teal-600':'text-red-500')}>{msg}</span>}
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={importXls} className="hidden"/>
+            <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
             <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
             <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Input Salary</button>
           </div>
