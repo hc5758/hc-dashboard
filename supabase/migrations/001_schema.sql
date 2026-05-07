@@ -1,6 +1,7 @@
 -- ============================================================
 -- HC DASHBOARD 5758 — Complete Database Schema
--- Run this in Supabase SQL Editor (Dashboard → SQL Editor)
+-- VERSI AMAN: bisa dijalankan ulang tanpa error
+-- Run di Supabase: SQL Editor → paste semua → Run
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -47,71 +48,78 @@ CREATE TABLE IF NOT EXISTS contracts (
 
 -- ── ONBOARDING ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS onboarding (
-  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  employee_id         UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  pic_name            TEXT,
-  quarter             TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
-  year                INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
-  hiring_source       TEXT,
-  placement_location  TEXT DEFAULT 'Jakarta',
-  update_to_structure BOOLEAN DEFAULT false,
+  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id          UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  pic_name             TEXT,
+  quarter              TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+  year                 INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
+  hiring_source        TEXT,
+  placement_location   TEXT DEFAULT 'Jakarta',
+  update_to_structure  BOOLEAN DEFAULT false,
   send_job_description BOOLEAN DEFAULT false,
-  session_1           BOOLEAN DEFAULT false,
-  session_1_date      DATE,
-  session_2           BOOLEAN DEFAULT false,
-  session_2_date      DATE,
-  session_3           BOOLEAN DEFAULT false,
-  session_3_date      DATE,
-  session_4           BOOLEAN DEFAULT false,
-  session_4_date      DATE,
-  is_completed        BOOLEAN DEFAULT false,
-  notes               TEXT,
-  created_at          TIMESTAMPTZ DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ DEFAULT NOW()
+  session_1            BOOLEAN DEFAULT false,
+  session_1_date       DATE,
+  session_2            BOOLEAN DEFAULT false,
+  session_2_date       DATE,
+  session_3            BOOLEAN DEFAULT false,
+  session_3_date       DATE,
+  session_4            BOOLEAN DEFAULT false,
+  session_4_date       DATE,
+  is_completed         BOOLEAN DEFAULT false,
+  notes                TEXT,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── OFFBOARDING ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS offboarding (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  employee_id       UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  pic_name          TEXT,
-  report_date       DATE NOT NULL,
-  quarter           TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
-  year              INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
-  offboard_type     TEXT NOT NULL CHECK (offboard_type IN ('Resign','End of Contract','Termination','Retirement')),
-  effective_date    DATE NOT NULL,
-  reason_to_leave   TEXT,
-  return_assets     BOOLEAN DEFAULT false,
-  clearance_letter  BOOLEAN DEFAULT false,
-  exit_interview    BOOLEAN DEFAULT false,
-  send_paklaring    BOOLEAN DEFAULT false,
-  bpjs_deactivated  BOOLEAN DEFAULT false,
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id        UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  pic_name           TEXT,
+  report_date        DATE NOT NULL,
+  quarter            TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+  year               INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
+  offboard_type      TEXT NOT NULL CHECK (offboard_type IN ('Resign','End of Contract','Termination','Retirement')),
+  effective_date     DATE NOT NULL,
+  reason_to_leave    TEXT,
+  return_assets      BOOLEAN DEFAULT false,
+  clearance_letter   BOOLEAN DEFAULT false,
+  exit_interview     BOOLEAN DEFAULT false,
+  send_paklaring     BOOLEAN DEFAULT false,
+  bpjs_deactivated   BOOLEAN DEFAULT false,
   final_payment_done BOOLEAN DEFAULT false,
-  notes             TEXT,
-  created_at        TIMESTAMPTZ DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ DEFAULT NOW()
+  notes              TEXT,
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── RECRUITMENT ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS recruitment (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  position         TEXT NOT NULL,
-  division         TEXT NOT NULL,
-  entity           TEXT NOT NULL CHECK (entity IN ('SSR','Nyambee (PAT)','PAT-5758')),
-  pic_name         TEXT,
-  quarter          TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
-  year             INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
-  hiring_source    TEXT,
-  target_date      DATE,
-  status           TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open','In Progress','Offering','Hired','On Hold','Cancelled')),
-  total_applicants INTEGER DEFAULT 0,
-  screening_count  INTEGER DEFAULT 0,
-  interview_count  INTEGER DEFAULT 0,
-  offering_count   INTEGER DEFAULT 0,
-  hired_date       DATE,
-  notes            TEXT,
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  position           TEXT NOT NULL,
+  division           TEXT NOT NULL,
+  entity             TEXT NOT NULL CHECK (entity IN ('SSR','Nyambee (PAT)','PAT-5758')),
+  pic_name           TEXT,
+  quarter            TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+  year               INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
+  hiring_source      TEXT,
+  target_date        DATE,
+  status             TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open','In Progress','Offering','Hired','On Hold','Cancelled')),
+  total_applicants   INTEGER DEFAULT 0,
+  screening_count    INTEGER DEFAULT 0,
+  interview_count    INTEGER DEFAULT 0,
+  offering_count     INTEGER DEFAULT 0,
+  hired_date         DATE,
+  notes              TEXT,
+  hiring_process     TEXT DEFAULT 'Open',
+  on_progress_hiring TEXT,
+  ol_signed_date     DATE,
+  join_date          DATE,
+  request_date       DATE,
+  budget_allocation  NUMERIC(15,0) DEFAULT 0,
+  remarks            TEXT,
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── TNA RECORDS ────────────────────────────────────────────
@@ -154,56 +162,56 @@ CREATE TABLE IF NOT EXISTS pip_sp (
 
 -- ── SALARY RECORDS ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS salary_records (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  employee_id      UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  year             INTEGER NOT NULL,
-  month            INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
-  basic_salary     BIGINT NOT NULL DEFAULT 0,
-  allowance        BIGINT DEFAULT 0,
-  overtime         BIGINT DEFAULT 0,
-  bonus            BIGINT DEFAULT 0,
-  deduction        BIGINT DEFAULT 0,
+  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id          UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  year                 INTEGER NOT NULL,
+  month                INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+  basic_salary         BIGINT NOT NULL DEFAULT 0,
+  allowance            BIGINT DEFAULT 0,
+  overtime             BIGINT DEFAULT 0,
+  bonus                BIGINT DEFAULT 0,
+  deduction            BIGINT DEFAULT 0,
   bpjs_ketenagakerjaan BIGINT DEFAULT 0,
-  bpjs_kesehatan   BIGINT DEFAULT 0,
-  pph21            BIGINT DEFAULT 0,
-  net_salary       BIGINT GENERATED ALWAYS AS (
+  bpjs_kesehatan       BIGINT DEFAULT 0,
+  pph21                BIGINT DEFAULT 0,
+  net_salary           BIGINT GENERATED ALWAYS AS (
     basic_salary + allowance + overtime + bonus
     - deduction - bpjs_ketenagakerjaan - bpjs_kesehatan - pph21
   ) STORED,
-  payment_date     DATE,
-  is_paid          BOOLEAN DEFAULT false,
-  notes            TEXT,
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW(),
+  payment_date         DATE,
+  is_paid              BOOLEAN DEFAULT false,
+  notes                TEXT,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(employee_id, year, month)
 );
 
 -- ── ATTENDANCE / LEAVE ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS attendance_leave (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  employee_id  UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  leave_type   TEXT NOT NULL CHECK (leave_type IN ('Tahunan','Sakit','Melahirkan','Penting','Cuti Bersama','Unpaid')),
-  start_date   DATE NOT NULL,
-  end_date     DATE NOT NULL,
-  total_days   INTEGER NOT NULL DEFAULT 1,
-  status       TEXT NOT NULL DEFAULT 'Approved' CHECK (status IN ('Pending','Approved','Rejected')),
-  notes        TEXT,
-  created_at   TIMESTAMPTZ DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ DEFAULT NOW()
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  leave_type  TEXT NOT NULL CHECK (leave_type IN ('Tahunan','Sakit','Melahirkan','Penting','Cuti Bersama','Unpaid')),
+  start_date  DATE NOT NULL,
+  end_date    DATE NOT NULL,
+  total_days  INTEGER NOT NULL DEFAULT 1,
+  status      TEXT NOT NULL DEFAULT 'Approved' CHECK (status IN ('Pending','Approved','Rejected')),
+  notes       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── ENGAGEMENT SURVEYS ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS engagement_surveys (
-  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  year              INTEGER NOT NULL,
-  quarter           TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
-  division          TEXT NOT NULL,
-  engagement_score  NUMERIC(3,1),
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  year               INTEGER NOT NULL,
+  quarter            TEXT NOT NULL CHECK (quarter IN ('Q1','Q2','Q3','Q4')),
+  division           TEXT NOT NULL,
+  engagement_score   NUMERIC(3,1),
   satisfaction_score NUMERIC(3,1),
-  response_count    INTEGER DEFAULT 0,
-  total_count       INTEGER DEFAULT 0,
-  notes             TEXT,
-  created_at        TIMESTAMPTZ DEFAULT NOW()
+  response_count     INTEGER DEFAULT 0,
+  total_count        INTEGER DEFAULT 0,
+  notes              TEXT,
+  created_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── ACTIVITY LOG ───────────────────────────────────────────
@@ -213,6 +221,40 @@ CREATE TABLE IF NOT EXISTS activity_log (
   table_name  TEXT,
   description TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── RECRUITMENT CANDIDATES ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS recruitment_candidates (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recruitment_id UUID NOT NULL REFERENCES recruitment(id) ON DELETE CASCADE,
+  full_name      TEXT NOT NULL,
+  email          TEXT,
+  phone          TEXT,
+  source         TEXT,
+  stage          TEXT NOT NULL DEFAULT 'Psikotest'
+                 CHECK (stage IN ('Psikotest','Quick Call','Dummy Deck','User Interview 1','User Interview 2','Offered','Hired','Rejected')),
+  interview_date DATE,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── PERFORMANCE SCORES ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS performance_scores (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  year        INTEGER NOT NULL,
+  quarter     TEXT CHECK (quarter IN ('Q1','Q2','Q3','Q4','Full Year')),
+  score       NUMERIC(5,1) NOT NULL CHECK (score BETWEEN 0 AND 100),
+  csat_score  TEXT,
+  kpi_score   TEXT,
+  csat_link   TEXT,
+  kpi_link    TEXT,
+  pic_name    TEXT,
+  notes       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(employee_id, year, quarter)
 );
 
 -- ── INDEXES ────────────────────────────────────────────────
@@ -228,69 +270,51 @@ CREATE INDEX IF NOT EXISTS idx_tna_status    ON tna_records(status);
 CREATE INDEX IF NOT EXISTS idx_salary_emp    ON salary_records(employee_id, year, month);
 CREATE INDEX IF NOT EXISTS idx_leave_emp     ON attendance_leave(employee_id);
 CREATE INDEX IF NOT EXISTS idx_leave_dates   ON attendance_leave(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_cand_rec      ON recruitment_candidates(recruitment_id);
+CREATE INDEX IF NOT EXISTS idx_perf_emp      ON performance_scores(employee_id, year);
 
 -- ── ROW LEVEL SECURITY ─────────────────────────────────────
-ALTER TABLE employees           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contracts           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE onboarding          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE offboarding         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE recruitment         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tna_records         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pip_sp              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE salary_records      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE attendance_leave    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE engagement_surveys  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE activity_log        ENABLE ROW LEVEL SECURITY;
-
--- Policies: semua akses via service_role key (server-side only)
--- Anon tidak bisa akses langsung — semua melalui API routes
-DO $$
-DECLARE tbl TEXT;
-BEGIN
-  FOREACH tbl IN ARRAY ARRAY[
-    'employees','contracts','onboarding','offboarding','recruitment',
-    'tna_records','pip_sp','salary_records','attendance_leave',
-    'engagement_surveys','activity_log'
-  ] LOOP
-    EXECUTE format('CREATE POLICY "service_role_only_%s" ON %I USING (true)', tbl, tbl);
-  END LOOP;
-END $$;
-
--- ── RECRUITMENT CANDIDATES ────────────────────────────────
-CREATE TABLE IF NOT EXISTS recruitment_candidates (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  recruitment_id  UUID NOT NULL REFERENCES recruitment(id) ON DELETE CASCADE,
-  full_name       TEXT NOT NULL,
-  email           TEXT,
-  phone           TEXT,
-  source          TEXT,
-  stage           TEXT NOT NULL DEFAULT 'Applicant' CHECK (stage IN ('Applicant','Screening','Interview','Offering','Hired','Rejected')),
-  interview_date  DATE,
-  notes           TEXT,
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_cand_rec ON recruitment_candidates(recruitment_id);
+ALTER TABLE employees              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contracts              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE onboarding             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE offboarding            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recruitment            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tna_records            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pip_sp                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE salary_records         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_leave       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE engagement_surveys     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_log           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recruitment_candidates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only_recruitment_candidates" ON recruitment_candidates USING (true);
+ALTER TABLE performance_scores     ENABLE ROW LEVEL SECURITY;
 
--- ── PERFORMANCE SCORES ────────────────────────────────────
-CREATE TABLE IF NOT EXISTS performance_scores (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  employee_id   UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-  year          INTEGER NOT NULL,
-  quarter       TEXT CHECK (quarter IN ('Q1','Q2','Q3','Q4','Full Year')),
-  score         NUMERIC(5,1) NOT NULL CHECK (score BETWEEN 0 AND 100),
-  csat_score    TEXT,
-  kpi_score     TEXT,
-  csat_link     TEXT,
-  kpi_link      TEXT,
-  pic_name      TEXT,
-  notes         TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(employee_id, year, quarter)
-);
-CREATE INDEX IF NOT EXISTS idx_perf_emp ON performance_scores(employee_id, year);
-ALTER TABLE performance_scores ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only_performance_scores" ON performance_scores USING (true);
+-- ── POLICIES — DROP DULU BIAR AMAN DIJALANKAN ULANG ────────
+DROP POLICY IF EXISTS "service_role_only_employees"               ON employees;
+DROP POLICY IF EXISTS "service_role_only_contracts"               ON contracts;
+DROP POLICY IF EXISTS "service_role_only_onboarding"             ON onboarding;
+DROP POLICY IF EXISTS "service_role_only_offboarding"            ON offboarding;
+DROP POLICY IF EXISTS "service_role_only_recruitment"            ON recruitment;
+DROP POLICY IF EXISTS "service_role_only_tna_records"            ON tna_records;
+DROP POLICY IF EXISTS "service_role_only_pip_sp"                 ON pip_sp;
+DROP POLICY IF EXISTS "service_role_only_salary_records"         ON salary_records;
+DROP POLICY IF EXISTS "service_role_only_attendance_leave"       ON attendance_leave;
+DROP POLICY IF EXISTS "service_role_only_engagement_surveys"     ON engagement_surveys;
+DROP POLICY IF EXISTS "service_role_only_activity_log"           ON activity_log;
+DROP POLICY IF EXISTS "service_role_only_recruitment_candidates" ON recruitment_candidates;
+DROP POLICY IF EXISTS "service_role_only_performance_scores"     ON performance_scores;
+
+CREATE POLICY "service_role_only_employees"               ON employees              USING (true);
+CREATE POLICY "service_role_only_contracts"               ON contracts              USING (true);
+CREATE POLICY "service_role_only_onboarding"             ON onboarding             USING (true);
+CREATE POLICY "service_role_only_offboarding"            ON offboarding            USING (true);
+CREATE POLICY "service_role_only_recruitment"            ON recruitment            USING (true);
+CREATE POLICY "service_role_only_tna_records"            ON tna_records            USING (true);
+CREATE POLICY "service_role_only_pip_sp"                 ON pip_sp                 USING (true);
+CREATE POLICY "service_role_only_salary_records"         ON salary_records         USING (true);
+CREATE POLICY "service_role_only_attendance_leave"       ON attendance_leave       USING (true);
+CREATE POLICY "service_role_only_engagement_surveys"     ON engagement_surveys     USING (true);
+CREATE POLICY "service_role_only_activity_log"           ON activity_log           USING (true);
+CREATE POLICY "service_role_only_recruitment_candidates" ON recruitment_candidates USING (true);
+CREATE POLICY "service_role_only_performance_scores"     ON performance_scores     USING (true);
+
+SELECT 'Schema HC Dashboard 5758 berhasil!' AS status;
