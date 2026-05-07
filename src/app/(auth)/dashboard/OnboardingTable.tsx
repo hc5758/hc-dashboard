@@ -1,15 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
 
 const SECTIONS = [
   {
-    key: 'awal',
-    label: 'Awal',
-    bg: '#1d4ed8',
-    light: '#eff6ff',
+    key: 'awal', label: 'Awal', bg: '#1d4ed8', light: 'bg-blue-50', border: 'border-blue-200',
     fields: [
       { key: 'akses',         label: 'Akses' },
       { key: 'hc_onboarding', label: 'HC Onboarding' },
@@ -17,10 +14,7 @@ const SECTIONS = [
     ],
   },
   {
-    key: 'perk',
-    label: 'Perkenalan Tim',
-    bg: '#7c3aed',
-    light: '#f5f3ff',
+    key: 'perk', label: 'Perkenalan Tim', bg: '#7c3aed', light: 'bg-purple-50', border: 'border-purple-200',
     fields: [
       { key: 'perk_project',      label: 'Project' },
       { key: 'perk_account',      label: 'Account' },
@@ -34,49 +28,46 @@ const SECTIONS = [
     ],
   },
   {
-    key: 'probation',
-    label: 'Probation',
-    bg: '#b45309',
-    light: '#fffbeb',
+    key: 'probation', label: 'Probation', bg: '#b45309', light: 'bg-amber-50', border: 'border-amber-200',
     fields: [
-      { key: 'checkin_1',      label: 'Check-in 1' },
-      { key: 'checkin_2',      label: 'Check-in 2' },
-      { key: 'checkin_3',      label: 'Check-in 3' },
-      { key: 'checkin_4',      label: 'Check-in 4' },
-      { key: 'checkin_5',      label: 'Check-in 5' },
-      { key: 'final_review',   label: 'Final Review' },
+      { key: 'checkin_1',    label: 'Check-in 1' },
+      { key: 'checkin_2',    label: 'Check-in 2' },
+      { key: 'checkin_3',    label: 'Check-in 3' },
+      { key: 'checkin_4',    label: 'Check-in 4' },
+      { key: 'checkin_5',    label: 'Check-in 5' },
+      { key: 'final_review', label: 'Final Review' },
     ],
   },
 ]
 
-const LEGACY: Record<string, string> = {
+const LEGACY: Record<string,string> = {
   akses: 'update_to_structure',
   hc_onboarding: 'send_job_description',
   gnowbe: 'session_1',
-  perkenalan_tim: 'session_2',
+  perk_project: 'session_2',
 }
 
 const ALL_FIELDS = SECTIONS.flatMap(s => s.fields.map(f => f.key))
 
+function getVal(o: any, field: string) {
+  if (o[field] !== undefined) return !!o[field]
+  const leg = LEGACY[field]
+  return leg ? !!o[leg] : false
+}
+
 function Chk({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className={cn(
-        'w-[22px] h-[22px] rounded border text-[10px] font-bold inline-flex items-center justify-center transition-all',
-        on ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-teal-400'
-      )}>
+      className={cn('w-6 h-6 rounded-md text-[11px] font-bold inline-flex items-center justify-center border transition-all flex-shrink-0',
+        on ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-teal-400')}>
       ✓
     </button>
   )
 }
 
 export default function OnboardingTable({ onboarding: init }: { onboarding: any[] }) {
-  const [data, setData] = useState(init)
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
-
-  function toggleSection(key: string) {
-    setCollapsed(p => ({ ...p, [key]: !p[key] }))
-  }
+  const [data, setData]       = useState(init)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   async function toggle(id: string, field: string, cur: boolean) {
     const val = !cur
@@ -88,17 +79,6 @@ export default function OnboardingTable({ onboarding: init }: { onboarding: any[
     })
   }
 
-  function getVal(o: any, field: string) {
-    if (o[field] !== undefined) return !!o[field]
-    const leg = LEGACY[field]
-    return leg ? !!o[leg] : false
-  }
-
-  function sectionPct(o: any, s: typeof SECTIONS[0]) {
-    const done = s.fields.filter(f => getVal(o, f.key)).length
-    return Math.round(done / s.fields.length * 100)
-  }
-
   if (data.length === 0) return null
 
   return (
@@ -106,170 +86,140 @@ export default function OnboardingTable({ onboarding: init }: { onboarding: any[
       <div className="card-head">
         <span className="card-title">Onboarding Checklist</span>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-400">Klik header section untuk collapse</span>
+          {SECTIONS.map(s => (
+            <div key={s.key} className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-sm" style={{ background: s.bg }} />
+              <span className="text-[10.5px] text-slate-500">{s.label}</span>
+            </div>
+          ))}
           <Badge variant="blue">Q1–Q2 2026</Badge>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="border-collapse" style={{ tableLayout: 'fixed' }}>
-          <colgroup>
-            {/* Nama + Divisi + Q */}
-            <col style={{ width: 160 }} />
-            <col style={{ width: 90 }} />
-            <col style={{ width: 36 }} />
-            {/* Sections */}
-            {SECTIONS.map(s =>
-              collapsed[s.key]
-                ? <col key={s.key} style={{ width: 36 }} />
-                : s.fields.map(f => <col key={f.key} style={{ width: 50 }} />)
-            )}
-            {/* Progress */}
-            <col style={{ width: 110 }} />
-          </colgroup>
-
-          <thead>
-            {/* Row 1 — section group headers */}
-            <tr>
-              <th rowSpan={2} className="px-3 py-2 bg-slate-50 border-b border-r border-slate-200 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                Nama
+      <table className="tbl">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Divisi</th>
+            <th className="text-center">Q</th>
+            {SECTIONS.map(s => (
+              <th key={s.key} className="text-center" style={{ minWidth: 110 }}>
+                <div className="flex items-center justify-center gap-1">
+                  <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.bg }} />
+                  {s.label}
+                </div>
               </th>
-              <th rowSpan={2} className="px-2 py-2 bg-slate-50 border-b border-r border-slate-200 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                Divisi
-              </th>
-              <th rowSpan={2} className="px-1 py-2 bg-slate-50 border-b border-r border-slate-200 text-center text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                Q
-              </th>
+            ))}
+            <th style={{ minWidth: 150 }}>Total Progress</th>
+            <th className="text-center w-8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(o => {
+            const isOpen = expanded === o.id
+            const totalDone = ALL_FIELDS.filter(f => getVal(o, f)).length
+            const totalPct  = Math.round(totalDone / ALL_FIELDS.length * 100)
 
-              {SECTIONS.map(s => (
-                <th key={s.key}
-                  colSpan={collapsed[s.key] ? 1 : s.fields.length}
-                  onClick={() => toggleSection(s.key)}
-                  className="border-b border-r border-slate-200 text-center cursor-pointer select-none transition-opacity hover:opacity-80"
-                  style={{ background: s.bg, padding: '5px 4px' }}>
-                  <div className="flex items-center justify-center gap-1 text-white">
-                    {collapsed[s.key]
-                      ? <ChevronRight size={12} />
-                      : <ChevronLeft size={12} />}
-                    <span className="text-[9.5px] font-bold whitespace-nowrap">
-                      {collapsed[s.key] ? s.label.slice(0, 3) + '…' : s.label}
-                    </span>
-                  </div>
-                </th>
-              ))}
-
-              <th rowSpan={2} className="px-3 py-2 bg-slate-50 border-b border-l border-slate-200 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                Progress
-              </th>
-            </tr>
-
-            {/* Row 2 — field labels */}
-            <tr>
-              {SECTIONS.map(s =>
-                collapsed[s.key]
-                  ? (
-                    <th key={s.key} className="border-b border-r border-slate-100 text-center"
-                      style={{ background: s.light }}>
-                      <div className="text-[8px] font-semibold text-slate-400 py-1">–</div>
-                    </th>
-                  )
-                  : s.fields.map((f, fi) => (
-                    <th key={f.key}
-                      className={cn('px-1 py-1.5 border-b border-slate-200 text-center',
-                        fi === s.fields.length - 1 ? 'border-r' : '')}
-                      style={{ background: s.light }}>
-                      <div className={cn('text-[8px] leading-tight whitespace-nowrap',
-                        (f as any).top ? 'font-bold text-slate-700' : 'font-medium text-slate-400')}>
-                        {f.label}
-                      </div>
-                    </th>
-                  ))
-              )}
-            </tr>
-          </thead>
-
-          <tbody>
-            {data.map(o => {
-              const totalDone = ALL_FIELDS.filter(f => getVal(o, f)).length
-              const totalPct  = Math.round(totalDone / ALL_FIELDS.length * 100)
-
-              return (
-                <tr key={o.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
-                  {/* Nama */}
-                  <td className="px-3 py-2 border-r border-slate-100">
-                    <div className="font-semibold text-[12px] text-slate-800 truncate">{o.employee?.full_name}</div>
-                    <div className="text-[9.5px] text-slate-400 truncate mt-0.5">{o.employee?.position}</div>
+            return (
+              <>
+                <tr key={o.id}
+                  className={cn('cursor-pointer transition-colors', isOpen ? 'bg-slate-50' : 'hover:bg-slate-50/60')}
+                  onClick={() => setExpanded(isOpen ? null : o.id)}>
+                  <td>
+                    <div className="font-semibold text-[12.5px]">{o.employee?.full_name}</div>
+                    <div className="text-[10.5px] text-slate-400 mt-0.5">{o.employee?.position}</div>
                   </td>
-                  {/* Divisi */}
-                  <td className="px-2 py-2 border-r border-slate-100 text-[11px] text-slate-500 truncate">
-                    {o.employee?.division}
-                  </td>
-                  {/* Quarter */}
-                  <td className="px-1 py-2 border-r border-slate-100 text-center">
-                    <span className={cn('text-[9px] font-bold px-1 py-0.5 rounded border',
-                      o.quarter === 'Q1' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-teal-50 text-teal-600 border-teal-200')}>
+                  <td className="text-[12px] text-slate-500">{o.employee?.division}</td>
+                  <td className="text-center">
+                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                      o.quarter==='Q1'?'bg-blue-50 text-blue-600 border-blue-200':'bg-teal-50 text-teal-600 border-teal-200')}>
                       {o.quarter}
                     </span>
                   </td>
 
-                  {/* Sections */}
-                  {SECTIONS.map(s =>
-                    collapsed[s.key]
-                      ? (
-                        <td key={s.key} className="text-center border-r border-slate-100 py-2"
-                          style={{ background: s.light }}>
-                          <div className="text-[10px] font-bold" style={{ color: s.bg }}>
-                            {sectionPct(o, s)}%
+                  {/* Mini progress per section */}
+                  {SECTIONS.map(s => {
+                    const done = s.fields.filter(f => getVal(o, f.key)).length
+                    const pct  = Math.round(done / s.fields.length * 100)
+                    return (
+                      <td key={s.key} className="text-center px-3">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="text-[12px] font-semibold" style={{ color: pct === 100 ? '#059669' : pct > 0 ? s.bg : '#94a3b8' }}>
+                            {done}/{s.fields.length}
                           </div>
-                        </td>
-                      )
-                      : s.fields.map((f, fi) => (
-                        <td key={f.key}
-                          className={cn('text-center py-2',
-                            fi === s.fields.length - 1 ? 'border-r border-slate-100' : '',
-                            (f as any).top ? 'bg-slate-50/60' : ''
-                          )}>
-                          <Chk on={getVal(o, f.key)} onClick={() => toggle(o.id, f.key, getVal(o, f.key))} />
-                        </td>
-                      ))
-                  )}
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, background: pct === 100 ? '#10b981' : s.bg }} />
+                          </div>
+                          <div className="text-[9.5px] text-slate-400">{pct}%</div>
+                        </div>
+                      </td>
+                    )
+                  })}
 
-                  {/* Progress */}
-                  <td className="px-3 py-2 border-l border-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  {/* Total progress */}
+                  <td className="px-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all',
-                          totalPct === 100 ? 'bg-teal-500' : totalPct > 66 ? 'bg-blue-500' : totalPct > 33 ? 'bg-amber-400' : 'bg-slate-200')}
+                          totalPct===100?'bg-teal-500':totalPct>60?'bg-blue-500':totalPct>30?'bg-amber-400':'bg-slate-300')}
                           style={{ width: `${totalPct}%` }} />
                       </div>
-                      <span className={cn('text-[10px] font-bold w-7 text-right flex-shrink-0',
-                        totalPct === 100 ? 'text-teal-600' : totalPct > 50 ? 'text-blue-600' : 'text-slate-400')}>
+                      <span className={cn('text-[11px] font-bold w-8 text-right',
+                        totalPct===100?'text-teal-600':totalPct>50?'text-blue-600':'text-slate-400')}>
                         {totalPct}%
                       </span>
                     </div>
-                    <div className="text-[9px] text-slate-400 mt-0.5">{totalDone}/{ALL_FIELDS.length}</div>
+                    <div className="text-[9.5px] text-slate-400 mt-0.5">{totalDone}/{ALL_FIELDS.length} item</div>
+                  </td>
+
+                  <td className="text-center">
+                    <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 transition-colors mx-auto',
+                      isOpen ? 'bg-slate-200 text-slate-600' : 'bg-slate-100 hover:bg-slate-200')}>
+                      {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </div>
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Legend + collapse hint */}
-      <div className="px-5 py-2.5 border-t border-slate-100 flex items-center gap-4 flex-wrap">
-        {SECTIONS.map(s => (
-          <button key={s.key} onClick={() => toggleSection(s.key)}
-            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-            <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: s.bg }} />
-            <span className="text-[11px] text-slate-500">
-              {s.label} ({s.fields.length})
-              {collapsed[s.key] && <span className="text-[10px] text-slate-400 ml-1">— klik untuk buka</span>}
-            </span>
-          </button>
-        ))}
-        <span className="text-[10.5px] text-slate-300 ml-auto">Total {ALL_FIELDS.length} item</span>
-      </div>
+                {/* Expanded checklist detail */}
+                {isOpen && (
+                  <tr key={o.id + '_detail'}>
+                    <td colSpan={8} className="p-0 border-b border-slate-100">
+                      <div className="bg-slate-50 px-5 py-4">
+                        <div className="grid grid-cols-3 gap-4">
+                          {SECTIONS.map(s => {
+                            const done = s.fields.filter(f => getVal(o, f.key)).length
+                            return (
+                              <div key={s.key} className={cn('rounded-xl border p-4', s.light, s.border)}>
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-[12px] font-bold" style={{ color: s.bg }}>{s.label}</div>
+                                  <div className="text-[11px] font-semibold text-slate-500">{done}/{s.fields.length}</div>
+                                </div>
+                                <div className="space-y-2">
+                                  {s.fields.map(f => (
+                                    <div key={f.key} className="flex items-center gap-2.5"
+                                      onClick={e => { e.stopPropagation(); toggle(o.id, f.key, getVal(o, f.key)) }}>
+                                      <Chk on={getVal(o, f.key)} onClick={() => toggle(o.id, f.key, getVal(o, f.key))} />
+                                      <span className={cn('text-[12px] transition-colors',
+                                        getVal(o, f.key) ? 'text-slate-400 line-through' : 'text-slate-700')}>
+                                        {f.label}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
