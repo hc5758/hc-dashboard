@@ -40,7 +40,7 @@ function calcCarryOver(prevRemaining: number): number {
 // Cuti yang TIDAK ngurangin saldo tahunan
 const NON_ANNUAL_TYPES = ['Sakit','Penting','Melahirkan','Cuti Bersama','Overtime','Unpaid']
 
-const EMPTY_LEAVE = { employee_id:'', leave_type:'Tahunan', special_type:'', start_date:'', end_date:'', total_days:1, status:'Approved', notes:'' }
+const EMPTY_LEAVE = { employee_id:'', leave_type:'Tahunan', special_type:'', start_date:'', end_date:'', total_days:1, annual_days:0, special_days:0, is_combined:false, status:'Approved', notes:'' }
 const EMPTY_BAL   = { employee_id:'', year:2026, annual_entitled:12, annual_carryover:0, overtime_entitled:0, notes:'' }
 
 export default function CutiClient({ leave:initLeave, employees, balances:initBal }: { leave:any[]; employees:any[]; balances:any[] }) {
@@ -142,20 +142,38 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     if(!leaveForm.employee_id||!leaveForm.start_date||!leaveForm.end_date){alert('Pilih karyawan dan tanggal');return}
     setSaving(true)
     try{
-      const payload={...leaveForm,year:new Date(leaveForm.start_date).getFullYear()}
-      if(editId){
-        const res=await fetch('/api/leave',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editId,...payload})})
-        const data=await res.json();if(!res.ok)throw new Error(data.error)
-        const emp=employees.find(e=>e.id===leaveForm.employee_id)
-        setLeave(prev=>prev.map(l=>l.id===editId?{...data.data,employee:emp}:l))
-        // Update balance used
-        if(leaveForm.leave_type==='Tahunan') await updateBalanceUsed(leaveForm.employee_id,'annual')
-        if(leaveForm.leave_type==='Overtime') await updateBalanceUsed(leaveForm.employee_id,'overtime')
-      }else{
-        const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-        const data=await res.json();if(!res.ok)throw new Error(data.error)
-        const emp=employees.find(e=>e.id===leaveForm.employee_id)
-        setLeave(prev=>[{...data.data,employee:emp},...prev])
+      const year=new Date(leaveForm.start_date).getFullYear()
+
+      if(leaveForm.is_combined){
+        // Simpan 2 record terpisah
+        if(leaveForm.annual_days>0){
+          const r1={employee_id:leaveForm.employee_id,leave_type:'Tahunan',start_date:leaveForm.start_date,end_date:leaveForm.end_date,total_days:leaveForm.annual_days,status:leaveForm.status,notes:`[Gabungan] ${leaveForm.notes||''}`.trim(),year}
+          const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r1)})
+          const data=await res.json();if(!res.ok)throw new Error(data.error)
+          const emp=employees.find(e=>e.id===leaveForm.employee_id)
+          setLeave(prev=>[{...data.data,employee:emp},...prev])
+        }
+        if(leaveForm.special_days>0){
+          const r2={employee_id:leaveForm.employee_id,leave_type:'Penting',special_type:leaveForm.special_type,start_date:leaveForm.start_date,end_date:leaveForm.end_date,total_days:leaveForm.special_days,status:leaveForm.status,notes:`[Gabungan - Khusus] ${leaveForm.notes||''}`.trim(),year}
+          const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r2)})
+          const data=await res.json();if(!res.ok)throw new Error(data.error)
+          const emp=employees.find(e=>e.id===leaveForm.employee_id)
+          setLeave(prev=>[{...data.data,employee:emp},...prev])
+        }
+        await updateBalanceUsed(leaveForm.employee_id,'annual')
+      } else {
+        const payload={...leaveForm,year}
+        if(editId){
+          const res=await fetch('/api/leave',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editId,...payload})})
+          const data=await res.json();if(!res.ok)throw new Error(data.error)
+          const emp=employees.find(e=>e.id===leaveForm.employee_id)
+          setLeave(prev=>prev.map(l=>l.id===editId?{...data.data,employee:emp}:l))
+        }else{
+          const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+          const data=await res.json();if(!res.ok)throw new Error(data.error)
+          const emp=employees.find(e=>e.id===leaveForm.employee_id)
+          setLeave(prev=>[{...data.data,employee:emp},...prev])
+        }
         if(leaveForm.leave_type==='Tahunan') await updateBalanceUsed(leaveForm.employee_id,'annual')
         if(leaveForm.leave_type==='Overtime') await updateBalanceUsed(leaveForm.employee_id,'overtime')
       }
@@ -423,7 +441,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
           {/* Info kebijakan */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              {icon:'📅',title:'Cuti Tahunan',desc:'12 hr/th (≥2th: 14hr, ≥5th: 15hr) · Carry-over max 5 hr · Hangus jika tidak dipakai sebelum Juli'},
+              {icon:'📅',title:'Cuti Tahunan',desc:'12 hr/th (flat untuk semua karyawan) · Carry-over max 5 hr · Hangus jika tidak dipakai sebelum Juli'},
               {icon:'🎂',title:'Cuti Khusus Terencana',desc:'Ulang tahun 1hr · Menikah 3hr · Khitan/Baptis anak 2hr'},
               {icon:'🆘',title:'Cuti Khusus Tidak Terencana',desc:'Istri melahirkan/keguguran 2hr · Kedukaan keluarga inti 2hr · Keluarga serumah 1hr'},
             ].map(i=>(
@@ -527,12 +545,67 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 })}
               </select>
             </div>
-            <div><label className="form-label">Tipe Cuti</label>
-              <select value={leaveForm.leave_type} onChange={e=>lf('leave_type',e.target.value)} className="form-input">
-                {LEAVE_TYPES.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
-              </select>
+
+            {/* Toggle gabung cuti */}
+            <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3 border border-slate-200">
+              <div>
+                <div className="text-[12.5px] font-semibold text-slate-700">Gabung dengan cuti khusus?</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">Misal: cuti ulang tahun + tahunan dalam 1 periode</div>
+              </div>
+              <button onClick={()=>lf('is_combined',!leaveForm.is_combined)}
+                className={cn('w-11 h-6 rounded-full transition-all relative flex-shrink-0',
+                  leaveForm.is_combined?'bg-teal-500':'bg-slate-300')}>
+                <div className={cn('w-4 h-4 bg-white rounded-full absolute top-1 transition-all shadow-sm',
+                  leaveForm.is_combined?'left-6':'left-1')}/>
+              </button>
             </div>
-            {leaveForm.leave_type==='Penting'&&(
+
+            {/* Mode biasa */}
+            {!leaveForm.is_combined&&(
+              <div><label className="form-label">Tipe Cuti</label>
+                <select value={leaveForm.leave_type} onChange={e=>lf('leave_type',e.target.value)} className="form-input">
+                  {LEAVE_TYPES.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Mode gabung */}
+            {leaveForm.is_combined&&(
+              <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="text-[12px] font-semibold text-blue-800">Rincian Cuti Gabungan</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="form-label">Hari Cuti Tahunan</label>
+                    <input type="number" value={leaveForm.annual_days} min={0}
+                      onChange={e=>{const v=parseInt(e.target.value)||0;lf('annual_days',v);lf('total_days',v+(leaveForm.special_days||0));lf('leave_type','Tahunan')}}
+                      className="form-input" placeholder="0"/>
+                    {leaveForm.employee_id&&(()=>{
+                      const s=getSaldo(leaveForm.employee_id,new Date().getFullYear())
+                      return <div className="text-[10.5px] text-teal-600 mt-1">Sisa saldo: {s.annualLeft} hr</div>
+                    })()}
+                  </div>
+                  <div>
+                    <label className="form-label">Hari Cuti Khusus</label>
+                    <input type="number" value={leaveForm.special_days} min={0}
+                      onChange={e=>{const v=parseInt(e.target.value)||0;lf('special_days',v);lf('total_days',(leaveForm.annual_days||0)+v)}}
+                      className="form-input" placeholder="0"/>
+                  </div>
+                </div>
+                <div><label className="form-label">Jenis Cuti Khusus</label>
+                  <select value={leaveForm.special_type} onChange={e=>lf('special_type',e.target.value)} className="form-input">
+                    <option value="">Pilih...</option>
+                    {SPECIAL_TYPES.map(t=><option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className="bg-white rounded-lg px-3 py-2.5 text-[12px] text-blue-700 border border-blue-200">
+                  Total: <strong>{(leaveForm.annual_days||0)+(leaveForm.special_days||0)} hari</strong>
+                  {leaveForm.annual_days>0&&<span className="ml-2">· {leaveForm.annual_days} hr potong tahunan</span>}
+                  {leaveForm.special_days>0&&<span className="ml-1">· {leaveForm.special_days} hr cuti khusus (tidak potong tahunan)</span>}
+                </div>
+              </div>
+            )}
+
+            {leaveForm.leave_type==='Penting'&&!leaveForm.is_combined&&(
               <div><label className="form-label">Jenis Cuti Khusus</label>
                 <select value={leaveForm.special_type} onChange={e=>lf('special_type',e.target.value)} className="form-input">
                   <option value="">Pilih...</option>
@@ -541,7 +614,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               </div>
             )}
             {/* Saldo info */}
-            {leaveForm.employee_id&&leaveForm.leave_type==='Tahunan'&&(()=>{
+            {leaveForm.employee_id&&(leaveForm.leave_type==="Tahunan"||leaveForm.is_combined)&&(()=>{
               const s=getSaldo(leaveForm.employee_id,new Date().getFullYear())
               return(
                 <div className={cn('rounded-lg px-4 py-3 text-[12px]',s.annualLeft<=0?'bg-red-50 border border-red-200 text-red-700':'bg-teal-50 border border-teal-200 text-teal-700')}>
@@ -559,7 +632,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 </div>
               )
             })()}
-            {NON_ANNUAL_TYPES.includes(leaveForm.leave_type)&&leaveForm.leave_type!=='Overtime'&&(
+            {NON_ANNUAL_TYPES.includes(leaveForm.leave_type)&&leaveForm.leave_type!=="Overtime"&&!leaveForm.is_combined&&(
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-[12px] text-blue-700">
                 ℹ Cuti {leaveForm.leave_type} tidak mengurangi saldo cuti tahunan
               </div>
