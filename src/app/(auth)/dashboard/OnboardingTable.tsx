@@ -22,7 +22,6 @@ const SECTIONS = [
     bg: '#7c3aed',
     light: '#f5f3ff',
     fields: [
-      { key: 'perkenalan_tim',    label: 'Perkenalan Tim', top: true },
       { key: 'perk_project',      label: 'Project' },
       { key: 'perk_account',      label: 'Account' },
       { key: 'perk_strategist',   label: 'Strategist' },
@@ -40,13 +39,12 @@ const SECTIONS = [
     bg: '#b45309',
     light: '#fffbeb',
     fields: [
-      { key: 'probation_plan', label: 'Probation Plan', top: true },
       { key: 'checkin_1',      label: 'Check-in 1' },
       { key: 'checkin_2',      label: 'Check-in 2' },
       { key: 'checkin_3',      label: 'Check-in 3' },
       { key: 'checkin_4',      label: 'Check-in 4' },
       { key: 'checkin_5',      label: 'Check-in 5' },
-      { key: 'final_review',   label: 'Final Review', top: true },
+      { key: 'final_review',   label: 'Final Review' },
     ],
   },
 ]

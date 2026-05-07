@@ -13,17 +13,24 @@ const EMPTY = { employee_id:'', pic_name:'', report_date:'', quarter:'Q2', year:
 
 export default function TurnoverClient({ offboarding: initOff, employees, active }: { offboarding:any[]; employees:any[]; active:any[] }) {
   const [offboarding, setOff] = useState(initOff)
+  const [filterYear, setFilterYear] = useState<number|null>(null) // null = semua tahun
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string|null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<any>(EMPTY)
   const fv = (k:string,v:any) => setForm((p:any)=>({...p,[k]:v}))
 
-  const total = offboarding.length
+  // Filter by tahun
+  const offFiltered = filterYear ? offboarding.filter(o => o.year === filterYear || new Date(o.effective_date||o.report_date||'').getFullYear() === filterYear) : offboarding
+
+  // Available years
+  const years = Array.from(new Set(offboarding.map(o => o.year || new Date(o.effective_date||o.report_date||'').getFullYear()).filter(Boolean))).sort((a,b)=>b-a)
+
+  const total = offFiltered.length
   const turnoverRate = active.length>0 ? ((total/(active.length+total))*100).toFixed(1) : '0'
 
   const byDiv: Record<string,number> = {}
-  offboarding.forEach(o=>{ const d=o.employee?.division??'Unknown'; byDiv[d]=(byDiv[d]||0)+1 })
+  offFiltered.forEach(o=>{ const d=o.employee?.division??'Unknown'; byDiv[d]=(byDiv[d]||0)+1 })
   const divData = Object.entries(byDiv).sort((a,b)=>b[1]-a[1])
   const maxDiv = divData[0]?.[1]||1
 
@@ -88,10 +95,29 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
 
   return (
     <div className="space-y-5">
+      {/* Year filter */}
+      <div className="flex items-center gap-2">
+        <button onClick={()=>setFilterYear(null)}
+          className={cn('px-3.5 py-1.5 rounded-lg text-[12px] font-semibold border transition-all',
+            !filterYear?'bg-[#0f1e3d] text-white border-[#0f1e3d]':'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}>
+          Semua Tahun
+        </button>
+        {[2026,2025,2024].map(y=>(
+          <button key={y} onClick={()=>setFilterYear(y)}
+            className={cn('px-3.5 py-1.5 rounded-lg text-[12px] font-semibold border transition-all',
+              filterYear===y?'bg-[#0f1e3d] text-white border-[#0f1e3d]':'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}>
+            {y}
+          </button>
+        ))}
+        <span className="text-[11.5px] text-slate-400 ml-2">
+          {filterYear ? `Menampilkan data ${filterYear} (${offFiltered.length} record)` : `Semua tahun (${offboarding.length} record)`}
+        </span>
+      </div>
+
       <div className="grid grid-cols-4 gap-3">
         <KPICard label="Turnover rate"   value={`${turnoverRate}%`} change="target <5%"  changeType="down" accent="bg-red-400"/>
-        <KPICard label="Total resign"    value={offboarding.filter(o=>o.offboard_type==='Resign').length} change="Q2 2026" changeType="flat" accent="bg-amber-400"/>
-        <KPICard label="End of contract" value={offboarding.filter(o=>o.offboard_type==='End of Contract').length} change="Q2 2026" changeType="flat" accent="bg-blue-400"/>
+        <KPICard label="Total resign"    value={offFiltered.filter(o=>o.offboard_type==='Resign').length} change={filterYear?`${filterYear}`:'YTD'} changeType="flat" accent="bg-amber-400"/>
+        <KPICard label="End of contract" value={offFiltered.filter(o=>o.offboard_type==='End of Contract').length} change={filterYear?`${filterYear}`:'YTD'} changeType="flat" accent="bg-blue-400"/>
         <KPICard label="Retention rate"  value={`${(100-parseFloat(turnoverRate)).toFixed(1)}%`} change="vs 91.4% Q4" changeType="up" accent="bg-teal-400"/>
       </div>
 
@@ -140,7 +166,7 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
             <th className="text-center">Aksi</th>
           </tr></thead>
           <tbody>
-            {offboarding.map(o=>(
+            {offFiltered.map(o=>(
               <tr key={o.id}>
                 <td className="font-bold">{o.employee?.full_name}</td>
                 <td className="text-[11px] text-slate-400">{o.employee?.division}</td>
@@ -160,7 +186,7 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
                 </div></td>
               </tr>
             ))}
-            {offboarding.length===0&&<EmptyState message="Belum ada data offboarding"/>}
+            {offFiltered.length===0&&<EmptyState message="Belum ada data offboarding"/>}
           </tbody>
         </table>
       </div>

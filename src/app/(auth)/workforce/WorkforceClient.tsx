@@ -18,7 +18,7 @@ const LEVELS=['Jr. Staff','Staff','Sr. Staff','Associate','Officer','Sr. Officer
 export default function WorkforceClient({ employees: init }: { employees: any[] }) {
   const [employees,setEmployees]=useState(init)
   const [search,setSearch]=useState('')
-  const [fStatus,setFStatus]=useState('')
+  const [activeTab, setActiveTab] = useState<'active'|'resigned'|'end_contract'>('active')
   const [fEntity,setFEntity]=useState('')
   const [fDiv,setFDiv]=useState('')
   const [msg,setMsg]=useState('')
@@ -40,7 +40,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
 
   const filtered=employees.filter(e=>
     (!search||e.full_name.toLowerCase().includes(search.toLowerCase())||e.employee_id.toLowerCase().includes(search.toLowerCase())||e.division.toLowerCase().includes(search.toLowerCase()))&&
-    (!fStatus||e.status===fStatus)&&(!fEntity||e.entity===fEntity)&&(!fDiv||e.division===fDiv)
+    e.status===activeTab&&(!fEntity||e.entity===fEntity)&&(!fDiv||e.division===fDiv)
   )
 
   function flash(t:string){setMsg(t);setTimeout(()=>setMsg(''),4000)}
@@ -58,14 +58,44 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
     if(!form.full_name||!form.employee_id||!form.join_date){alert('Nama, Employee ID, dan Join Date wajib diisi.');return}
     setSaving(true)
     try{
+      // Fix: kosongkan string tanggal jadi null supaya tidak error "invalid input syntax for type date"
+      const cleanForm = {
+        ...form,
+        birth_date:    form.birth_date    || null,
+        end_date:      form.end_date      || null,
+        join_date:     form.join_date     || null,
+      }
+
       if(editId){
-        const res=await fetch('/api/employees',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editId,...form})})
+        // Cek apakah status berubah jadi resigned
+        const prevEmp = employees.find(e=>e.id===editId)
+        const wasActive = prevEmp?.status === 'active'
+        const nowResigned = cleanForm.status === 'resigned'
+
+        const res=await fetch('/api/employees',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editId,...cleanForm})})
         const data=await res.json()
         if(!res.ok)throw new Error(data.error)
         setEmployees(prev=>prev.map(e=>e.id===editId?data.data:e))
         flash('✓ Data karyawan berhasil diperbarui')
+
+        // Auto-create offboarding jika status berubah ke resign
+        if(wasActive && nowResigned){
+          const today = new Date().toISOString().slice(0,10)
+          await fetch('/api/offboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+            employee_id: editId,
+            offboard_type: 'Resign',
+            report_date: today,
+            effective_date: cleanForm.end_date || today,
+            quarter: `Q${Math.ceil((new Date().getMonth()+1)/3)}`,
+            year: new Date().getFullYear(),
+            return_assets: false, clearance_letter: false,
+            exit_interview: false, send_paklaring: false,
+            bpjs_deactivated: false, final_payment_done: false,
+          })})
+          flash('✓ Status diperbarui & data offboarding otomatis ditambahkan ke Turnover')
+        }
       }else{
-        const res=await fetch('/api/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+        const res=await fetch('/api/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cleanForm)})
         const data=await res.json()
         if(!res.ok)throw new Error(data.error)
         setEmployees(prev=>[data.data,...prev])
@@ -151,14 +181,35 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
         </div>
 
         <div className="col-span-3 space-y-3">
+          {/* Tabs */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+            {([
+              { key: 'active',       label: 'Aktif',   count: employees.filter(e=>e.status==='active').length,        color: 'text-teal-700' },
+              { key: 'resigned',     label: 'Resign',  count: employees.filter(e=>e.status==='resigned').length,      color: 'text-red-600' },
+              { key: 'end_contract', label: 'End OC',  count: employees.filter(e=>e.status==='end_contract').length,  color: 'text-blue-600' },
+            ] as const).map(tab=>(
+              <button key={tab.key} onClick={()=>setActiveTab(tab.key)}
+                className={cn('flex items-center gap-2 px-4 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all',
+                  activeTab===tab.key
+                    ?'bg-white shadow-sm text-slate-800'
+                    :'text-slate-500 hover:text-slate-700')}>
+                {tab.label}
+                <span className={cn('text-[11px] font-bold px-1.5 py-0.5 rounded-full',
+                  activeTab===tab.key
+                    ?tab.key==='active'?'bg-teal-50 text-teal-700':tab.key==='resigned'?'bg-red-50 text-red-600':'bg-blue-50 text-blue-600'
+                    :'bg-slate-200 text-slate-500')}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Filters + Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-1.5 flex-1 min-w-[160px]">
               <Search size={12} className="text-slate-300"/>
               <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama, ID, divisi..." className="bg-transparent text-[11.5px] outline-none w-full text-slate-800 placeholder:text-slate-300"/>
             </div>
-            <select value={fStatus} onChange={e=>setFStatus(e.target.value)} className="form-input !w-auto py-1.5 text-[11px]">
-              <option value="">Semua status</option><option value="active">Aktif</option><option value="resigned">Resign</option><option value="end_contract">End OC</option>
-            </select>
             <select value={fEntity} onChange={e=>setFEntity(e.target.value)} className="form-input !w-auto py-1.5 text-[11px]">
               <option value="">Semua entitas</option>{entities.map(en=><option key={en}>{en}</option>)}
             </select>
@@ -173,7 +224,11 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
               <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah</button>
             </div>
           </div>
-          <div className="text-[10.5px] text-slate-300">Menampilkan <strong className="text-slate-800">{filtered.length}</strong> dari {employees.length} karyawan</div>
+          <div className="text-[10.5px] text-slate-400">
+            Menampilkan <strong className="text-slate-800">{filtered.length}</strong> karyawan
+            {activeTab==='active'?' aktif':activeTab==='resigned'?' resign':' end OC'}
+            {(fEntity||fDiv)&&<span> · difilter</span>}
+          </div>
           <div className="card overflow-x-auto">
             <table className="tbl" style={{minWidth:860}}>
               <thead><tr><th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>End date</th><th className="text-center">Aksi</th></tr></thead>
