@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const NOTIFS = [
-  { id:1, title:'4 kontrak habis <30 hari', desc:'Fajar, Ririn, Hendra, Putri perlu keputusan', time:'Hari ini', color:'bg-red-500' },
+  { id:1, title:'4 kontrak habis <60 hari', desc:'Fajar, Ririn, Hendra, Putri perlu keputusan', time:'Hari ini', color:'bg-red-500' },
   { id:2, title:'2 TNA overdue', desc:'Dewi Rahayu & Anisa Fitriani belum selesai', time:'3 hari lalu', color:'bg-amber-500' },
   { id:3, title:'Social Media: turnover 14.3%', desc:'Perlu intervensi segera', time:'1 minggu lalu', color:'bg-purple-500' },
 ]

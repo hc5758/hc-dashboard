@@ -177,7 +177,7 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
           <table className="tbl" style={{minWidth:1000}}>
             <thead>
               <tr style={{background:'#0f1e3d'}}>
-                {['Position','PIC HC','Request Date','OL Signed Date','Join Date','Hiring Progress','Hiring Process','On Progress Hiring','Remarks','Budget','Notes','Closing Name','Aksi'].map(h=>(
+                {['Position','PIC HC','Request Date','OL Signed Date','Join Date','Hiring Progress','Hiring Process','On Progress Hiring','Budget','Notes','Closing Name','Aksi'].map(h=>(
                   <th key={h} style={{color:'rgba(255,255,255,0.7)',background:'#0f1e3d',borderColor:'#1a2d5a',fontSize:'10.5px',fontWeight:600,letterSpacing:'0.04em',textTransform:'uppercase',textAlign:h==='Aksi'?'center':'left'}}>
                     {h}
                   </th>
@@ -272,13 +272,6 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
                         className={cn('badge border cursor-pointer outline-none bg-transparent text-[10.5px] font-semibold appearance-none',`badge-${PROCESS_COLOR[hp]??'gray'}`)}>
                         {HIRING_PROCESS.map(s=><option key={s}>{s}</option>)}
                       </select>
-                    </td>
-
-                    {/* Remarks */}
-                    <td style={{minWidth:130}}>
-                      <input defaultValue={r.remarks||''} onBlur={e=>updateField(r.id,'remarks',e.target.value)}
-                        className="text-[12px] text-slate-600 bg-transparent outline-none border-b border-transparent hover:border-slate-200 focus:border-teal-400 w-full py-0.5"
-                        placeholder="Keterangan..."/>
                     </td>
 
                     {/* Budget */}

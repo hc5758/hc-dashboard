@@ -33,12 +33,15 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   const active=employees.filter(e=>e.status==='active')
   const divs=Array.from(new Set(employees.map(e=>e.division))).sort()
   const entities=Array.from(new Set(employees.map(e=>e.entity))).sort()
+
+  // Chart: semua karyawan per divisi (aktif + non-aktif, sesuai tabel)
+  const divCounts=Object.entries(employees.reduce((acc:any,e)=>{acc[e.division]=(acc[e.division]||0)+1;return acc},{})).sort((a:any,b:any)=>b[1]-a[1])
+  const maxDiv=(divCounts[0]?.[1] as number)||1
+
   const filtered=employees.filter(e=>
     (!search||e.full_name.toLowerCase().includes(search.toLowerCase())||e.employee_id.toLowerCase().includes(search.toLowerCase())||e.division.toLowerCase().includes(search.toLowerCase()))&&
     (!fStatus||e.status===fStatus)&&(!fEntity||e.entity===fEntity)&&(!fDiv||e.division===fDiv)
   )
-  const divCounts=Object.entries(active.reduce((acc:any,e)=>{acc[e.division]=(acc[e.division]||0)+1;return acc},{})).sort((a:any,b:any)=>b[1]-a[1])
-  const maxDiv=(divCounts[0]?.[1] as number)||1
 
   function flash(t:string){setMsg(t);setTimeout(()=>setMsg(''),4000)}
   function openAdd(){setForm({...EMPTY});setEditId(null);setShowModal(true)}
@@ -115,12 +118,36 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
 
       <div className="grid grid-cols-4 gap-4">
         <div className="card">
-          <div className="card-head"><span className="card-title">By division</span></div>
-          <div className="card-body space-y-2">
-            {divCounts.slice(0,8).map(([div,count])=>(
-              <InlineBar key={div} label={div as string} value={`${count}`} pct={Math.round((count as number/maxDiv)*100)} color="bg-[#0f1e3d]"/>
-            ))}
+          <div className="card-head">
+            <span className="card-title">By division</span>
+            {fDiv && <button onClick={()=>setFDiv('')} className="text-[10.5px] text-teal-600 hover:underline">Reset</button>}
           </div>
+          <div className="card-body space-y-1.5">
+            {divCounts.slice(0,8).map(([div,count])=>{
+              // count semua karyawan per divisi (aktif + non-aktif), sesuai tabel
+              const totalDiv = employees.filter(e=>e.division===div).length
+              const activeDiv = active.filter(e=>e.division===div).length
+              const pct = Math.round((totalDiv/employees.length)*100)
+              return(
+                <button key={div} onClick={()=>setFDiv(fDiv===div?'':div)}
+                  className={cn('w-full text-left group rounded-lg transition-all py-0.5',fDiv===div?'bg-teal-50':'hover:bg-slate-50')}>
+                  <div className="flex items-center gap-3">
+                    <div className={cn('text-[11px] w-24 flex-shrink-0 text-right truncate',fDiv===div?'text-teal-700 font-semibold':'text-slate-500')}>{div as string}</div>
+                    <div className="flex-1 h-6 bg-slate-50 rounded-lg overflow-hidden">
+                      <div className={cn('h-full rounded-lg flex items-center px-2.5',fDiv===div?'bg-teal-500':'bg-[#0f1e3d] group-hover:bg-teal-600')}
+                        style={{width:`${Math.max(Math.round((totalDiv/((divCounts[0]?.[1] as number)||1))*100),4)}%`}}>
+                        <span className="text-[10px] font-bold text-white">{totalDiv}</span>
+                      </div>
+                    </div>
+                    {activeDiv < totalDiv && (
+                      <span className="text-[9.5px] text-slate-400 flex-shrink-0">{activeDiv} aktif</span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <div className="px-5 pb-3 text-[10px] text-slate-300">Klik untuk filter tabel</div>
         </div>
 
         <div className="col-span-3 space-y-3">

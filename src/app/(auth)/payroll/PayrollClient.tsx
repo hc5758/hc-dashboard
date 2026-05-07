@@ -9,6 +9,41 @@ import * as XLSX from 'xlsx'
 const MONTHS_ID = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 const EMPTY = { employee_id:'', year:2026, month:5, basic_salary:0, allowance:0, overtime:0, bonus:0, deduction:0, bpjs_ketenagakerjaan:0, bpjs_kesehatan:0, pph21:0, payment_date:'', notes:'' }
 
+// ── Auto-kalkulasi BPJS & PPh21 (aturan 2024-2026) ────────
+function calcBPJS(gajiPokok: number) {
+  // BPJS Ketenagakerjaan: JHT 2% + JP 1% dari gaji pokok (ditanggung karyawan)
+  const jht = Math.round(gajiPokok * 0.02)
+  const jp  = Math.round(Math.min(gajiPokok, 9_077_600) * 0.01) // JP max upah 9.077.600
+  const bpjsTK = jht + jp
+
+  // BPJS Kesehatan: 1% dari gaji pokok, max Rp 12.000.000 (ditanggung karyawan)
+  const bpjsKes = Math.round(Math.min(gajiPokok, 12_000_000) * 0.01)
+
+  return { bpjsTK, bpjsKes }
+}
+
+function calcPPh21(penghasilanBruto: number, bpjsTK: number, bpjsKes: number): number {
+  // PPh21 metode gross (TER 2024 — tarif efektif rata-rata)
+  // Penghasilan netto = bruto - biaya jabatan (5%, max 500.000/bln) - BPJS
+  const biayaJabatan = Math.min(Math.round(penghasilanBruto * 0.05), 500_000)
+  const penghasilanNetto = penghasilanBruto - biayaJabatan - bpjsTK - bpjsKes
+
+  // PTKP TK/0 = 54.000.000/tahun = 4.500.000/bulan
+  const ptkpBulan = 4_500_000
+  const pkpBulan  = Math.max(penghasilanNetto - ptkpBulan, 0)
+
+  // Tarif progresif (disetahunkan)
+  const pkpTahunan = pkpBulan * 12
+  let pphTahunan = 0
+  if (pkpTahunan <= 60_000_000)        pphTahunan = pkpTahunan * 0.05
+  else if (pkpTahunan <= 250_000_000)  pphTahunan = 3_000_000 + (pkpTahunan - 60_000_000) * 0.15
+  else if (pkpTahunan <= 500_000_000)  pphTahunan = 31_500_000 + (pkpTahunan - 250_000_000) * 0.25
+  else if (pkpTahunan <= 5_000_000_000) pphTahunan = 94_000_000 + (pkpTahunan - 500_000_000) * 0.30
+  else pphTahunan = 1_444_000_000 + (pkpTahunan - 5_000_000_000) * 0.35
+
+  return Math.round(Math.max(pphTahunan / 12, 0))
+}
+
 export default function PayrollClient({ salary: initSal, employees }: { salary: any[]; employees: any[] }) {
   const [salary, setSalary]           = useState(initSal)
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1)
@@ -18,8 +53,18 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
   const [saving, setSaving]           = useState(false)
   const [form, setForm]               = useState<any>(EMPTY)
   const [msg, setMsg]                 = useState('')
+  const [showManualOverride, setShowManualOverride] = useState(false)
   const fv  = (k:string,v:any) => setForm((p:any)=>({...p,[k]:v}))
   const flash = (t:string) => { setMsg(t); setTimeout(()=>setMsg(''),4000) }
+
+  // Auto-kalkulasi saat gaji pokok / komponen berubah
+  function handleSalaryChange(k:string, val:number) {
+    const next = {...form, [k]: val}
+    const bruto = next.basic_salary + next.allowance + next.overtime + next.bonus
+    const { bpjsTK, bpjsKes } = calcBPJS(next.basic_salary)
+    const pph = calcPPh21(bruto, bpjsTK, bpjsKes)
+    setForm({...next, bpjs_ketenagakerjaan: bpjsTK, bpjs_kesehatan: bpjsKes, pph21: pph})
+  }
 
   const filtered  = salary.filter(s => s.year===filterYear && s.month===filterMonth)
   const totalNet  = filtered.reduce((s,r)=>s+(r.net_salary??0),0)
@@ -37,14 +82,19 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
   const divData = Object.entries(byDiv).sort((a,b)=>b[1]-a[1])
   const maxDiv  = (divData[0]?.[1] as number)||1
 
-  function openAdd(){ setForm({...EMPTY,month:filterMonth,year:filterYear}); setEditId(null); setShowModal(true) }
+  function openAdd(){ setForm({...EMPTY,month:filterMonth,year:filterYear}); setEditId(null); setShowManualOverride(false); setShowModal(true) }
   function openEdit(s:any){
+    const bruto = (s.basic_salary||0)+(s.allowance||0)+(s.overtime||0)+(s.bonus||0)
+    const { bpjsTK, bpjsKes } = calcBPJS(s.basic_salary||0)
+    const pph = calcPPh21(bruto, bpjsTK, bpjsKes)
     setForm({ employee_id:s.employee_id, year:s.year, month:s.month,
       basic_salary:s.basic_salary||0, allowance:s.allowance||0, overtime:s.overtime||0,
-      bonus:s.bonus||0, deduction:s.deduction||0, bpjs_ketenagakerjaan:s.bpjs_ketenagakerjaan||0,
-      bpjs_kesehatan:s.bpjs_kesehatan||0, pph21:s.pph21||0,
+      bonus:s.bonus||0, deduction:s.deduction||0,
+      bpjs_ketenagakerjaan:s.bpjs_ketenagakerjaan||bpjsTK,
+      bpjs_kesehatan:s.bpjs_kesehatan||bpjsKes,
+      pph21:s.pph21||pph,
       payment_date:s.payment_date||'', notes:s.notes||'' })
-    setEditId(s.id); setShowModal(true)
+    setEditId(s.id); setShowManualOverride(false); setShowModal(true)
   }
 
   async function save(){
@@ -247,17 +297,60 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {numIn('basic_salary','Gaji Pokok (Rp)')}
-              {numIn('allowance','Tunjangan (Rp)')}
+              <div><label className="form-label">Gaji Pokok (Rp)</label>
+                <input type="number" value={form.basic_salary} onChange={e=>handleSalaryChange('basic_salary',parseInt(e.target.value)||0)} className="form-input" min={0}/>
+              </div>
+              <div><label className="form-label">Tunjangan (Rp)</label>
+                <input type="number" value={form.allowance} onChange={e=>handleSalaryChange('allowance',parseInt(e.target.value)||0)} className="form-input" min={0}/>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {numIn('overtime','Lembur (Rp)')}
-              {numIn('bonus','Bonus (Rp)')}
+              <div><label className="form-label">Lembur (Rp)</label>
+                <input type="number" value={form.overtime} onChange={e=>handleSalaryChange('overtime',parseInt(e.target.value)||0)} className="form-input" min={0}/>
+              </div>
+              <div><label className="form-label">Bonus (Rp)</label>
+                <input type="number" value={form.bonus} onChange={e=>handleSalaryChange('bonus',parseInt(e.target.value)||0)} className="form-input" min={0}/>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {numIn('bpjs_ketenagakerjaan','BPJS TK (Rp)')}
-              {numIn('bpjs_kesehatan','BPJS Kes (Rp)')}
-              {numIn('pph21','PPh21 (Rp)')}
+
+            {/* Auto-kalkulasi BPJS & PPh21 */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[12px] font-semibold text-slate-700">Potongan (Auto-kalkulasi)</div>
+                <span className="text-[10.5px] text-slate-400 bg-white border border-slate-200 rounded-full px-2 py-0.5">Sesuai aturan 2024–2026</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <div className="text-[10.5px] text-slate-400 mb-1">BPJS Ketenagakerjaan</div>
+                  <div className="text-[13px] font-semibold text-slate-800">{fmtCurrencyShort(form.bpjs_ketenagakerjaan)}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">JHT 2% + JP 1%</div>
+                </div>
+                <div>
+                  <div className="text-[10.5px] text-slate-400 mb-1">BPJS Kesehatan</div>
+                  <div className="text-[13px] font-semibold text-slate-800">{fmtCurrencyShort(form.bpjs_kesehatan)}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">1% gaji pokok, max Rp 12 Jt</div>
+                </div>
+                <div>
+                  <div className="text-[10.5px] text-slate-400 mb-1">PPh21 (TER 2024)</div>
+                  <div className="text-[13px] font-semibold text-slate-800">{fmtCurrencyShort(form.pph21)}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">Tarif progresif TK/0</div>
+                </div>
+              </div>
+              <div className="mt-2 text-[10.5px] text-slate-400">
+                Total potongan: <strong className="text-red-500">{fmtCurrencyShort(form.bpjs_ketenagakerjaan + form.bpjs_kesehatan + form.pph21)}</strong>
+                <span className="ml-2 text-slate-300">|</span>
+                <span className="ml-2">Override manual jika diperlukan:</span>
+                <button onClick={()=>setShowManualOverride(!showManualOverride)} className="ml-1 text-teal-600 hover:underline">
+                  {showManualOverride?'Sembunyikan':'Edit manual'}
+                </button>
+              </div>
+              {showManualOverride&&(
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-200">
+                  <div><label className="form-label">BPJS TK manual</label><input type="number" value={form.bpjs_ketenagakerjaan} onChange={e=>fv('bpjs_ketenagakerjaan',parseInt(e.target.value)||0)} className="form-input" min={0}/></div>
+                  <div><label className="form-label">BPJS Kes manual</label><input type="number" value={form.bpjs_kesehatan} onChange={e=>fv('bpjs_kesehatan',parseInt(e.target.value)||0)} className="form-input" min={0}/></div>
+                  <div><label className="form-label">PPh21 manual</label><input type="number" value={form.pph21} onChange={e=>fv('pph21',parseInt(e.target.value)||0)} className="form-input" min={0}/></div>
+                </div>
+              )}
             </div>
             <div><label className="form-label">Tgl Pembayaran</label>
               <input type="date" value={form.payment_date} onChange={e=>fv('payment_date',e.target.value)} className="form-input"/>
