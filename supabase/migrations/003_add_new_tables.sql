@@ -80,3 +80,44 @@ ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_3          BOOLEAN DEFAU
 ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_4          BOOLEAN DEFAULT false;
 ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS checkin_5          BOOLEAN DEFAULT false;
 ALTER TABLE onboarding ADD COLUMN IF NOT EXISTS final_review       BOOLEAN DEFAULT false;
+
+-- ── LEAVE BALANCE (Saldo Cuti per Karyawan per Tahun) ──────
+CREATE TABLE IF NOT EXISTS leave_balance (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  year            INTEGER NOT NULL DEFAULT 2026,
+  -- Hak cuti tahunan
+  annual_entitled INTEGER NOT NULL DEFAULT 12,   -- hak cuti tahunan (12 hari)
+  annual_used     INTEGER NOT NULL DEFAULT 0,    -- sudah dipakai
+  annual_carryover INTEGER NOT NULL DEFAULT 0,   -- carry over dari tahun lalu (max 5)
+  -- Sakit
+  sick_used       INTEGER NOT NULL DEFAULT 0,
+  -- Cuti khusus terencana
+  birthday_entitled INTEGER NOT NULL DEFAULT 1,
+  birthday_used     INTEGER NOT NULL DEFAULT 0,
+  married_entitled  INTEGER NOT NULL DEFAULT 3,
+  married_used      INTEGER NOT NULL DEFAULT 0,
+  child_event_entitled INTEGER NOT NULL DEFAULT 2,
+  child_event_used     INTEGER NOT NULL DEFAULT 0,
+  -- Cuti khusus tidak terencana
+  paternity_entitled INTEGER NOT NULL DEFAULT 2,
+  paternity_used     INTEGER NOT NULL DEFAULT 0,
+  bereavement_entitled INTEGER NOT NULL DEFAULT 2,
+  bereavement_used     INTEGER NOT NULL DEFAULT 0,
+  -- Overtime / kompensasi
+  overtime_entitled INTEGER NOT NULL DEFAULT 0,   -- ditambah manual oleh HC
+  overtime_used     INTEGER NOT NULL DEFAULT 0,
+  -- Notes
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(employee_id, year)
+);
+CREATE INDEX IF NOT EXISTS idx_leave_bal_emp ON leave_balance(employee_id, year);
+ALTER TABLE leave_balance ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "service_role_only_leave_balance" ON leave_balance;
+CREATE POLICY "service_role_only_leave_balance" ON leave_balance USING (true);
+
+-- Tambah kolom leave_balance_id di attendance_leave
+ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS balance_id UUID REFERENCES leave_balance(id);
+ALTER TABLE attendance_leave ADD COLUMN IF NOT EXISTS year INTEGER DEFAULT 2026;
