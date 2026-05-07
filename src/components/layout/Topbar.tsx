@@ -1,19 +1,23 @@
 'use client'
 import { Bell, Search, ChevronDown, X, Building2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-
-const NOTIFS = [
-  { id:1, title:'4 kontrak habis <60 hari', desc:'Fajar, Ririn, Hendra, Putri perlu keputusan', time:'Hari ini', color:'bg-red-500' },
-  { id:2, title:'2 TNA overdue', desc:'Dewi Rahayu & Anisa Fitriani belum selesai', time:'3 hari lalu', color:'bg-amber-500' },
-  { id:3, title:'Social Media: turnover 14.3%', desc:'Perlu intervensi segera', time:'1 minggu lalu', color:'bg-purple-500' },
-]
 
 export default function Topbar({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
   const router = useRouter()
   const [showNotif, setShowNotif] = useState(false)
-  const [notifs, setNotifs]       = useState(NOTIFS)
+  const [notifs, setNotifs]       = useState<any[]>([])
+  const [dismissed, setDismissed] = useState<string[]>([])
   const [search, setSearch]       = useState('')
+
+  useEffect(()=>{
+    fetch('/api/notifications').then(r=>r.json()).then(d=>{ if(d.data) setNotifs(d.data) }).catch(()=>{})
+  },[])
+
+  const visible = notifs.filter(n=>!dismissed.includes(n.id))
+
+  function dismiss(id:string){ setDismissed(p=>[...p,id]) }
+  function dismissAll(){ setDismissed(notifs.map(n=>n.id)) }
 
   function handleSearch(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== 'Enter' || !search.trim()) return
@@ -58,9 +62,9 @@ export default function Topbar({ title, subtitle, right }: { title: string; subt
         <button onClick={()=>setShowNotif(!showNotif)}
           className="relative p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
           <Bell size={17} />
-          {notifs.length>0 && (
+          {visible.length>0 && (
             <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] font-bold text-white flex items-center justify-center">
-              {notifs.length}
+              {visible.length}
             </span>
           )}
         </button>
@@ -71,21 +75,22 @@ export default function Topbar({ title, subtitle, right }: { title: string; subt
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <span className="text-[13px] font-semibold text-slate-800">Notifikasi</span>
                 <div className="flex items-center gap-2">
-                  {notifs.length>0 && <button onClick={()=>setNotifs([])} className="text-[10.5px] text-slate-400 hover:text-slate-600">Hapus semua</button>}
+                  {visible.length>0 && <button onClick={dismissAll} className="text-[10.5px] text-slate-400 hover:text-slate-600">Hapus semua</button>}
                   <button onClick={()=>setShowNotif(false)} className="text-slate-300 hover:text-slate-600"><X size={14}/></button>
                 </div>
               </div>
-              {notifs.length===0
+              {visible.length===0
                 ? <div className="px-4 py-8 text-center text-[12px] text-slate-400">Tidak ada notifikasi</div>
-                : notifs.map(n=>(
-                  <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer">
+                : visible.map(n=>(
+                  <div key={n.id} onClick={()=>{ if(n.href) router.push(n.href); setShowNotif(false) }}
+                    className="flex items-start gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer">
                     <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.color}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-[12px] font-semibold text-slate-800">{n.title}</div>
                       <div className="text-[10.5px] text-slate-400 mt-0.5">{n.desc}</div>
-                      <div className="text-[10px] text-slate-300 mt-1">{n.time}</div>
+                      {n.time&&<div className="text-[10px] text-slate-300 mt-1">{n.time}</div>}
                     </div>
-                    <button onClick={e=>{e.stopPropagation();setNotifs(p=>p.filter(x=>x.id!==n.id))}} className="text-slate-200 hover:text-slate-400 flex-shrink-0"><X size={12}/></button>
+                    <button onClick={e=>{e.stopPropagation();dismiss(n.id)}} className="text-slate-200 hover:text-slate-400 flex-shrink-0"><X size={12}/></button>
                   </div>
                 ))
               }

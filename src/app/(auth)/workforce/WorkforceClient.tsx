@@ -44,7 +44,15 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   )
 
   function flash(t:string){setMsg(t);setTimeout(()=>setMsg(''),4000)}
-  function openAdd(){setForm({...EMPTY});setEditId(null);setShowModal(true)}
+  function openAdd(){
+    // Auto-generate next Employee ID
+    const ids = employees.map(e=>parseInt(e.employee_id?.replace(/\D/g,'')||'0')).filter(n=>!isNaN(n))
+    const nextNum = ids.length > 0 ? Math.max(...ids) + 1 : 1
+    const nextId = `EMP${String(nextNum).padStart(3,'0')}`
+    setForm({...EMPTY, employee_id: nextId})
+    setEditId(null)
+    setShowModal(true)
+  }
   function openEdit(emp:any){
     setForm({employee_id:emp.employee_id||'',full_name:emp.full_name||'',email:emp.email||'',phone:emp.phone||'',
       position:emp.position||'',level:emp.level||'',division:emp.division||'Creative',entity:emp.entity||'SSR',
@@ -56,6 +64,10 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
 
   async function saveEmployee(){
     if(!form.full_name||!form.employee_id||!form.join_date){alert('Nama, Employee ID, dan Join Date wajib diisi.');return}
+    // Validasi duplikat Employee ID (hanya saat tambah baru)
+    if(!editId && employees.some(e=>e.employee_id===form.employee_id)){
+      alert(`Employee ID "${form.employee_id}" sudah digunakan. Gunakan ID lain.`);return
+    }
     setSaving(true)
     try{
       // Fix: kosongkan string tanggal jadi null supaya tidak error "invalid input syntax for type date"

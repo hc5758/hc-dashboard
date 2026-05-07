@@ -15,7 +15,7 @@ export default async function DashboardPage() {
     db.from('contracts').select('*, employee:employees(full_name,division,employment_type)').eq('is_active',true),
     db.from('onboarding').select('*, employee:employees(full_name,position,division)').order('created_at',{ascending:false}),
     db.from('offboarding').select('*, employee:employees(full_name,division,join_date)').order('report_date',{ascending:false}),
-    db.from('recruitment').select('*').order('created_at',{ascending:false}),
+    db.from('recruitment').select('*, candidates:recruitment_candidates(id,stage)').order('created_at',{ascending:false}),
     db.from('tna_records').select('*, employee:employees(full_name,division)').order('created_at',{ascending:false}),
     db.from('pip_sp').select('*, employee:employees(full_name,division)').eq('status','Active'),
     db.from('attendance_leave').select('*, employee:employees(full_name,division)').eq('status','Approved'),
@@ -133,8 +133,6 @@ export default async function DashboardPage() {
             {openRec.length===0
               ? <div className="px-5 py-8 text-center text-[12px] text-slate-400">Tidak ada posisi terbuka</div>
               : openRec.slice(0,5).map(r=>{
-                const hp = r.hiring_process||r.status||'Open'
-                const pct = {Open:5,Screening:25,Interview:50,Offering:70,'OL Signed':85,Joined:100,'In Progress':35}[hp]??20
                 return(
                   <a key={r.id} href="/recruitment"
                     className="flex items-center gap-4 px-5 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors cursor-pointer">
@@ -143,20 +141,29 @@ export default async function DashboardPage() {
                       <div className="text-[10.5px] text-slate-400 mt-0.5">{r.division} · {r.entity}</div>
                     </div>
                     <div className="flex flex-col items-end gap-1 min-w-[120px]">
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-[10px] text-slate-400">{hp}</span>
-                        <span className="text-[10px] font-bold text-slate-600">{pct}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-400 rounded-full" style={{width:`${pct}%`}}/>
-                      </div>
+                      {(() => {
+                        const hp = r.hiring_process||r.status||'Open'
+                        const pct = ({Open:5,Screening:25,Interview:50,Offering:70,'OL Signed':85,Joined:100,'In Progress':35} as any)[hp]??20
+                        return <>
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[10px] text-slate-400">{hp}</span>
+                            <span className="text-[10px] font-bold text-slate-600">{pct}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-teal-400 rounded-full" style={{width:`${pct}%`}}/>
+                          </div>
+                        </>
+                      })()}
                     </div>
-                    {r.total_applicants>0&&(
-                      <div className="text-center flex-shrink-0">
-                        <div className="text-[15px] font-bold text-teal-600">{r.total_applicants}</div>
-                        <div className="text-[9px] text-slate-400">kandidat</div>
-                      </div>
-                    )}
+                    {(() => {
+                      const candCount = r.candidates?.length ?? r.total_applicants ?? 0
+                      return candCount > 0 ? (
+                        <div className="text-center flex-shrink-0">
+                          <div className="text-[15px] font-bold text-teal-600">{candCount}</div>
+                          <div className="text-[9px] text-slate-400">kandidat</div>
+                        </div>
+                      ) : null
+                    })()}
                   </a>
                 )
               })

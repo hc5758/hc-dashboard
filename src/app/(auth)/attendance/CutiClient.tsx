@@ -67,23 +67,28 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   function getSaldo(empId:string, year:number=2026) {
     const emp = employees.find(e=>e.id===empId)
     const bal = balances.find(b=>b.employee_id===empId&&b.year===year)
-    
+
     // Saldo tahunan
-    const annualEntitled = bal?.annual_entitled ?? calcAnnualEntitled(emp?.join_date)
-    // Carry-over dari tahun sebelumnya (ambil dari balance tahun lalu jika ada)
+    const annualEntitled = bal?.annual_entitled ?? 12
+
+    // Carry-over: cek balance tahun lalu, max 5hr, hangus setelah Juni
     const prevBal = balances.find(b=>b.employee_id===empId&&b.year===year-1)
-    const prevRemaining = prevBal ? (prevBal.annual_entitled + (prevBal.annual_carryover||0)) - (prevBal.annual_used||0) : 0
+    const prevAnnualUsed = prevBal?.annual_used ?? leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
+    const prevEntitled = prevBal?.annual_entitled ?? 12
+    const prevCarryOver = prevBal?.annual_carryover ?? 0
+    const prevRemaining = (prevEntitled + prevCarryOver) - prevAnnualUsed
     const carryOver = bal?.annual_carryover ?? calcCarryOver(prevRemaining)
+
     // Hanya cuti Tahunan yang ngurangi saldo
     const annualUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
     const annualTotal = annualEntitled + carryOver
     const annualLeft  = annualTotal - annualUsed
 
-    // Cuti khusus (sakit, ulang tahun, dll) — tidak ngurangi tahunan
-    const sickUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
-    const specialUsed   = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
-    const otEntitled    = bal?.overtime_entitled ?? 0
-    const otUsed        = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    // Cuti khusus (tidak ngurangi tahunan)
+    const sickUsed    = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const specialUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const otEntitled  = bal?.overtime_entitled ?? 0
+    const otUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
 
     return { annualEntitled, carryOver, annualTotal, annualUsed, annualLeft, sickUsed, specialUsed, otEntitled, otUsed, otLeft: otEntitled-otUsed }
   }
