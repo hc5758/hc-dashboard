@@ -12,7 +12,7 @@ const DAYS   = ['Sen','Sel','Rab','Kam','Jum','Sab','Min']
 const LEAVE_TYPES = [
   { key:'Tahunan',      label:'Cuti Tahunan',      color:'bg-teal-500',    badge:'teal',   balanceKey:'annual' },
   { key:'Sakit',        label:'Sakit',              color:'bg-blue-500',    badge:'blue',   balanceKey:'sick' },
-  { key:'Penting',      label:'Cuti Khusus',        color:'bg-amber-500',   badge:'amber',  balanceKey:null },
+  { key:'Penting',      label:'Cuti Khusus (Penting)',        color:'bg-amber-500',   badge:'amber',  balanceKey:null },
   { key:'Melahirkan',   label:'Melahirkan',         color:'bg-purple-500',  badge:'purple', balanceKey:null },
   { key:'Cuti Bersama', label:'Cuti Bersama',       color:'bg-slate-600',   badge:'navy',   balanceKey:null },
   { key:'Overtime',     label:'Kompensasi Overtime',color:'bg-green-500',   badge:'green',  balanceKey:'overtime' },
@@ -132,7 +132,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
     // Carry-over: cek balance tahun lalu, max 5hr, hangus setelah Juni
     const prevBal = balances.find(b=>b.employee_id===empId&&b.year===year-1)
-    const prevAnnualUsed = prevBal?.annual_used ?? leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
+    const prevAnnualUsed = prevBal?.annual_used ?? leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
     const prevEntitled = prevBal?.annual_entitled ?? 12
     const prevCarryOver = prevBal?.annual_carryover ?? 0
     const prevRemaining = (prevEntitled + prevCarryOver) - prevAnnualUsed
@@ -179,7 +179,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const upcoming = useMemo(()=>{
     const now=new Date();now.setHours(0,0,0,0)
     const in7=new Date(now.getTime()+7*86400000)
-    return leave.filter(l=>{const s=new Date(l.start_date);s.setHours(0,0,0,0);return s>=now&&s<=in7&&l.status==='Approved'})
+    return leave.filter(l=>{const s=new Date(l.start_date+'T00:00:00');s.setHours(0,0,0,0);return s>=now&&s<=in7&&l.status==='Approved'})
       .sort((a,b)=>new Date(a.start_date).getTime()-new Date(b.start_date).getTime())
   },[leave])
 
@@ -250,27 +250,36 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     setEditId(l.id);setShowLeaveModal(true)
   }
 
+  // Refetch semua data cuti dari API — pastikan tanggal dan employee join benar
+  async function refetchLeave() {
+    const res = await fetch('/api/leave')
+    const data = await res.json()
+    if (data.data) setLeave(data.data)
+  }
+
   async function saveLeave(){
     if(!leaveForm.employee_id||!leaveForm.start_date||!leaveForm.end_date){alert('Pilih karyawan dan tanggal');return}
     setSaving(true)
     try{
-      const year=new Date(leaveForm.start_date).getFullYear()
+      const year=new Date(leaveForm.start_date+'T00:00:00').getFullYear()
+
+      // Cek duplikat — skip kalau sudah ada record yang sama (bukan edit)
+      const isDupe = (type: string) => !editId && leave.some(l =>
+        l.employee_id===leaveForm.employee_id &&
+        l.leave_type===type &&
+        l.start_date===leaveForm.start_date
+      )
 
       if(leaveForm.is_combined){
-        // Simpan 2 record terpisah
-        if(leaveForm.annual_days>0){
+        if(leaveForm.annual_days>0 && !isDupe('Tahunan')){
           const r1={employee_id:leaveForm.employee_id,leave_type:'Tahunan',start_date:leaveForm.start_date,end_date:leaveForm.end_date,total_days:leaveForm.annual_days,status:leaveForm.status,notes:`[Gabungan] ${leaveForm.notes||''}`.trim(),year}
           const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r1)})
           const data=await res.json();if(!res.ok)throw new Error(data.error)
-          const emp=employees.find(e=>e.id===leaveForm.employee_id)
-          setLeave(prev=>[{...data.data,employee:emp},...prev])
         }
-        if(leaveForm.special_days>0){
+        if(leaveForm.special_days>0 && !isDupe('Penting')){
           const r2={employee_id:leaveForm.employee_id,leave_type:'Penting',special_type:leaveForm.special_type,start_date:leaveForm.start_date,end_date:leaveForm.end_date,total_days:leaveForm.special_days,status:leaveForm.status,notes:`[Gabungan - Khusus] ${leaveForm.notes||''}`.trim(),year}
           const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(r2)})
           const data=await res.json();if(!res.ok)throw new Error(data.error)
-          const emp=employees.find(e=>e.id===leaveForm.employee_id)
-          setLeave(prev=>[{...data.data,employee:emp},...prev])
         }
         await updateBalanceUsed(leaveForm.employee_id,'annual')
       } else {
@@ -278,17 +287,16 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
         if(editId){
           const res=await fetch('/api/leave',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editId,...payload})})
           const data=await res.json();if(!res.ok)throw new Error(data.error)
-          const emp=employees.find(e=>e.id===leaveForm.employee_id)
-          setLeave(prev=>prev.map(l=>l.id===editId?{...data.data,employee:emp}:l))
-        }else{
+        }else if(!isDupe(leaveForm.leave_type)){
           const res=await fetch('/api/leave',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
           const data=await res.json();if(!res.ok)throw new Error(data.error)
-          const emp=employees.find(e=>e.id===leaveForm.employee_id)
-          setLeave(prev=>[{...data.data,employee:emp},...prev])
         }
         if(leaveForm.leave_type==='Tahunan') await updateBalanceUsed(leaveForm.employee_id,'annual')
         if(leaveForm.leave_type==='Overtime') await updateBalanceUsed(leaveForm.employee_id,'overtime')
       }
+
+      // Refetch data dari API — pastikan tanggal dan employee join benar, tidak ada duplikat di state
+      await refetchLeave()
       setShowLeaveModal(false)
     }catch(err:any){alert('Error: '+err.message)}
     setSaving(false)
@@ -305,7 +313,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   async function delLeave(id:string){
     if(!confirm('Hapus data cuti ini?'))return
     await fetch(`/api/leave?id=${id}`,{method:'DELETE'})
-    setLeave(prev=>prev.filter(l=>l.id!==id))
+    await refetchLeave()
   }
 
   // ── Init balance for employee ─────────────────────────────
@@ -362,7 +370,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     <div className="space-y-4">
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-3">
-        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center text-red-500 font-bold text-lg">{leave.filter(l=>{const s=new Date(l.start_date),e=new Date(l.end_date);return today>=s&&today<=e&&l.status==='Approved'}).length}</div><div><div className="text-[13px] font-semibold">Cuti Hari Ini</div><div className="text-[11.5px] text-slate-400 mt-0.5">sedang cuti</div></div></div>
+        <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center text-red-500 font-bold text-lg">{leave.filter(l=>{const s=new Date(l.start_date+'T00:00:00'),e=new Date(l.end_date+'T00:00:00');return today>=s&&today<=e&&l.status==='Approved'}).length}</div><div><div className="text-[13px] font-semibold">Cuti Hari Ini</div><div className="text-[11.5px] text-slate-400 mt-0.5">sedang cuti</div></div></div>
         <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 font-bold text-lg">{leaveThisMonth.length}</div><div><div className="text-[13px] font-semibold">Cuti Bulan {MONTHS[calM]}</div><div className="text-[11.5px] text-slate-400 mt-0.5">disetujui</div></div></div>
         <div className="card p-4 flex items-center gap-3"><div className={cn('w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg',upcoming.length>0?'bg-amber-50 text-amber-600':'bg-slate-50 text-slate-400')}>{upcoming.length}</div><div><div className="text-[13px] font-semibold">Reminder &lt;7 Hari</div><div className="text-[11.5px] text-slate-400 mt-0.5">akan cuti</div></div></div>
         <div className="card p-4 flex items-center gap-3"><div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-lg">{employees.length}</div><div><div className="text-[13px] font-semibold">Total Karyawan</div><div className="text-[11.5px] text-slate-400 mt-0.5">aktif {new Date().getFullYear()}</div></div></div>
@@ -523,23 +531,97 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               <button onClick={()=>openAdd()} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah</button>
             </div>
             <table className="tbl">
-              <thead><tr><th>Karyawan</th><th>Divisi</th><th>Tipe</th><th>Mulai</th><th>Selesai</th><th>Total Hari</th><th>Status</th><th className="text-center">Aksi</th></tr></thead>
+              <thead><tr>
+                <th>Karyawan</th><th>Divisi</th><th>Tipe</th>
+                <th>Mulai</th><th>Selesai</th><th>Total Hari</th>
+                <th>Status</th><th>Catatan / Link Drive</th>
+                <th className="text-center">Aksi</th>
+              </tr></thead>
               <tbody>
-                {leave.map(l=>(
-                  <tr key={l.id}>
-                    <td className="font-semibold">{l.employee?.full_name}</td>
-                    <td className="text-[12px] text-slate-400">{l.employee?.division}</td>
-                    <td><Badge variant={(typeBadgeMap[l.leave_type]??'gray') as any}>{l.leave_type}</Badge></td>
-                    <td className="text-[12px] text-slate-400">{fmtDate(l.start_date)}</td>
-                    <td className="text-[12px] text-slate-400">{fmtDate(l.end_date)}</td>
-                    <td className="font-semibold">{l.total_days} hari</td>
-                    <td><Badge variant={l.status==='Approved'?'teal':l.status==='Rejected'?'red':'amber'}>{l.status}</Badge></td>
-                    <td><div className="flex items-center justify-center gap-1">
-                      <button onClick={()=>openEdit(l)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400"><Pencil size={12}/></button>
-                      <button onClick={()=>delLeave(l.id)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-500 text-slate-400"><Trash2 size={12}/></button>
-                    </div></td>
-                  </tr>
-                ))}
+                {(() => {
+                  // Grup Tahunan + Khusus yang tanggalnya sama jadi 1 baris
+                  const grouped: any[] = []
+                  const usedIds = new Set<string>()
+
+                  leave.forEach(l => {
+                    if (usedIds.has(l.id)) return
+                    // Cari pasangan gabungan (same employee, same start_date, different type)
+                    if (l.leave_type === 'Tahunan' && l.notes?.startsWith('[Gabungan]')) {
+                      const pair = leave.find(l2 =>
+                        !usedIds.has(l2.id) &&
+                        l2.employee_id === l.employee_id &&
+                        l2.start_date === l.start_date &&
+                        l2.leave_type === 'Penting' &&
+                        l2.notes?.startsWith('[Gabungan - Khusus]')
+                      )
+                      if (pair) {
+                        usedIds.add(l.id)
+                        usedIds.add(pair.id)
+                        grouped.push({ ...l, _pair: pair, _combined: true })
+                        return
+                      }
+                    }
+                    usedIds.add(l.id)
+                    grouped.push(l)
+                  })
+
+                  return grouped.map(l => {
+                    const tipeLabel = l.leave_type === 'Penting'
+                      ? (l.special_type ? `Khusus — ${l.special_type}` : 'Khusus')
+                      : l.leave_type
+
+                    const badgeVariant = (typeBadgeMap[l.leave_type] ?? 'gray') as any
+
+                    // Catatan: strip prefix [Gabungan] dan [Gabungan - Khusus]
+                    const cleanNote = (n: string) => (n||'').replace(/^\[Gabungan.*?\]\s*/,'').trim()
+                    const noteText = cleanNote(l.notes || '')
+
+                    return (
+                      <tr key={l.id}>
+                        <td className="font-semibold">{l.employee?.full_name}</td>
+                        <td className="text-[12px] text-slate-400">{l.employee?.division}</td>
+                        <td>
+                          {l._combined ? (
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="teal">{l.total_days} hr Tahunan</Badge>
+                              <Badge variant="amber">
+                                {l._pair.special_type ? `${l._pair.special_type}` : 'Khusus'} ({l._pair.total_days} hr)
+                              </Badge>
+                            </div>
+                          ) : (
+                            <Badge variant={badgeVariant}>{tipeLabel}</Badge>
+                          )}
+                        </td>
+                        <td className="text-[12px] text-slate-400">{fmtDate(l.start_date)}</td>
+                        <td className="text-[12px] text-slate-400">{fmtDate(l.end_date)}</td>
+                        <td className="font-semibold">
+                          {l._combined
+                            ? `${l.total_days + l._pair.total_days} hari`
+                            : `${l.total_days} hari`}
+                        </td>
+                        <td><Badge variant={l.status==='Approved'?'teal':l.status==='Rejected'?'red':'amber'}>{l.status}</Badge></td>
+                        <td className="max-w-[200px]">
+                          {noteText ? (
+                            noteText.startsWith('http') ? (
+                              <a href={noteText} target="_blank" rel="noopener noreferrer"
+                                className="text-[11.5px] text-blue-600 hover:underline truncate block">
+                                🔗 Buka link
+                              </a>
+                            ) : (
+                              <span className="text-[11.5px] text-slate-500 line-clamp-2">{noteText}</span>
+                            )
+                          ) : (
+                            <span className="text-[11px] text-slate-300">–</span>
+                          )}
+                        </td>
+                        <td><div className="flex items-center justify-center gap-1">
+                          <button onClick={()=>openEdit(l)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400"><Pencil size={12}/></button>
+                          <button onClick={()=>delLeave(l.id)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-500 text-slate-400"><Trash2 size={12}/></button>
+                        </div></td>
+                      </tr>
+                    )
+                  })
+                })()}
                 {leave.length===0&&<EmptyState message="Belum ada data cuti"/>}
               </tbody>
             </table>
@@ -822,7 +904,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 </select>
               </div>
             </div>
-            <div><label className="form-label">Catatan</label><input value={leaveForm.notes} onChange={e=>lf('notes',e.target.value)} className="form-input" placeholder="Opsional..."/></div>
+            <div><label className="form-label">Catatan / Link Drive</label><input value={leaveForm.notes} onChange={e=>lf('notes',e.target.value)} className="form-input" placeholder="Link Google Drive handover atau catatan lain..."/></div>
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={()=>setShowLeaveModal(false)} className="btn btn-ghost">Batal</button>
               <button onClick={saveLeave} disabled={saving} className="btn btn-teal">{saving?'Menyimpan...':editId?'Update':'Simpan'}</button>
