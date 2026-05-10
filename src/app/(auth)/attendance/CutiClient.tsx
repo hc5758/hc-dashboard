@@ -539,20 +539,27 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               </tr></thead>
               <tbody>
                 {(() => {
-                  // Grup Tahunan + Khusus yang tanggalnya sama jadi 1 baris
+                  // Grup Tahunan + Khusus yang employee & tanggal mulai sama → 1 baris
                   const grouped: any[] = []
                   const usedIds = new Set<string>()
 
-                  leave.forEach(l => {
+                  // Sort: Tahunan dulu supaya jadi primary row
+                  const sorted = [...leave].sort((a,b)=>{
+                    if(a.leave_type==='Tahunan'&&b.leave_type!=='Tahunan') return -1
+                    if(a.leave_type!=='Tahunan'&&b.leave_type==='Tahunan') return 1
+                    return 0
+                  })
+
+                  sorted.forEach(l => {
                     if (usedIds.has(l.id)) return
-                    // Cari pasangan gabungan (same employee, same start_date, different type)
-                    if (l.leave_type === 'Tahunan' && l.notes?.startsWith('[Gabungan]')) {
-                      const pair = leave.find(l2 =>
+                    // Cari pasangan: same employee, same start_date, Tahunan + Penting
+                    if (l.leave_type === 'Tahunan') {
+                      const pair = sorted.find(l2 =>
                         !usedIds.has(l2.id) &&
+                        l2.id !== l.id &&
                         l2.employee_id === l.employee_id &&
                         l2.start_date === l.start_date &&
-                        l2.leave_type === 'Penting' &&
-                        l2.notes?.startsWith('[Gabungan - Khusus]')
+                        l2.leave_type === 'Penting'
                       )
                       if (pair) {
                         usedIds.add(l.id)
