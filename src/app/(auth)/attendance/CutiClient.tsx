@@ -67,6 +67,8 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const [calY, setCalY]         = useState(today.getFullYear())
   const [calM, setCalM]         = useState(today.getMonth())
   const [selected, setSelected] = useState<string|null>(null)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
   const [showBalModal, setShowBalModal]     = useState(false)
   const [showOTModal, setShowOTModal]       = useState(false)
@@ -314,6 +316,35 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     if(!confirm('Hapus data cuti ini?'))return
     await fetch(`/api/leave?id=${id}`,{method:'DELETE'})
     await refetchLeave()
+    setCheckedIds(prev=>{ const n=new Set(prev); n.delete(id); return n })
+  }
+
+  async function bulkDelete(){
+    if(checkedIds.size===0) return
+    if(!confirm(`Hapus ${checkedIds.size} data cuti yang dipilih?`)) return
+    setBulkDeleting(true)
+    await Promise.all([...checkedIds].map(id=>fetch(`/api/leave?id=${id}`,{method:'DELETE'})))
+    setCheckedIds(new Set())
+    await refetchLeave()
+    setBulkDeleting(false)
+  }
+
+  function toggleCheck(id: string) {
+    setCheckedIds(prev=>{
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+
+  function toggleAll(ids: string[]) {
+    const allChecked = ids.every(id=>checkedIds.has(id))
+    setCheckedIds(prev=>{
+      const n = new Set(prev)
+      if(allChecked) ids.forEach(id=>n.delete(id))
+      else ids.forEach(id=>n.add(id))
+      return n
+    })
   }
 
   // ── Init balance for employee ─────────────────────────────
@@ -527,11 +558,26 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
           {/* Table */}
           <div className="card overflow-x-auto">
             <div className="card-head">
-              <span className="card-title">Semua Data Cuti</span>
+              <div className="flex items-center gap-3">
+                <span className="card-title">Semua Data Cuti</span>
+                {checkedIds.size>0&&(
+                  <button onClick={bulkDelete} disabled={bulkDeleting}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-[11.5px] font-semibold hover:bg-red-100 transition-colors">
+                    <Trash2 size={12}/>
+                    {bulkDeleting?'Menghapus...':`Hapus ${checkedIds.size} data`}
+                  </button>
+                )}
+              </div>
               <button onClick={()=>openAdd()} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah</button>
             </div>
             <table className="tbl">
               <thead><tr>
+                <th className="w-8 text-center">
+                  <input type="checkbox"
+                    className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                    checked={leave.length>0&&leave.every(l=>checkedIds.has(l.id))}
+                    onChange={()=>toggleAll(leave.map(l=>l.id))}/>
+                </th>
                 <th>Karyawan</th><th>Divisi</th><th>Tipe</th>
                 <th>Mulai</th><th>Selesai</th><th>Total Hari</th>
                 <th>Status</th><th>Catatan / Link Drive</th>
@@ -584,7 +630,13 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                     const noteText = cleanNote(l.notes || '')
 
                     return (
-                      <tr key={l.id}>
+                      <tr key={l.id} className={cn(checkedIds.has(l.id)?'bg-blue-50/50':'')}>
+                        <td className="text-center">
+                          <input type="checkbox"
+                            className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                            checked={checkedIds.has(l.id)}
+                            onChange={()=>toggleCheck(l.id)}/>
+                        </td>
                         <td className="font-semibold">{l.employee?.full_name}</td>
                         <td className="text-[12px] text-slate-400">{l.employee?.division}</td>
                         <td>

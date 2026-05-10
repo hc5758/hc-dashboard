@@ -2,10 +2,11 @@
 import { useState, useRef } from 'react'
 import { Search, Download, Upload, Plus, Pencil, Trash2 } from 'lucide-react'
 import { KPICard, Badge, StatusBadge, Avatar, InlineBar, InsightCard, EmptyState, TemplateBtn } from '@/components/ui'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { fmtDate, calcYoS, statusLabel, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
-
 const EMPTY: any = {
   employee_id:'',full_name:'',email:'',phone:'',position:'',level:'',
   division:'Creative',entity:'SSR',employment_type:'PKWTT',work_location:'Jakarta',
@@ -17,6 +18,8 @@ const LEVELS=['Jr. Staff','Staff','Sr. Staff','Associate','Officer','Sr. Officer
 
 export default function WorkforceClient({ employees: init }: { employees: any[] }) {
   const [employees,setEmployees]=useState(init)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [search,setSearch]=useState('')
   const [activeTab, setActiveTab] = useState<'active'|'resigned'|'end_contract'>('active')
   const [fEntity,setFEntity]=useState('')
@@ -121,8 +124,19 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   async function deleteEmployee(id:string,name:string){
     if(!confirm(`Hapus karyawan "${name}"? Tidak bisa dibatalkan.`))return
     const res=await fetch(`/api/employees?id=${id}`,{method:'DELETE'})
-    if(res.ok){setEmployees(prev=>prev.filter(e=>e.id!==id));flash('✓ Karyawan berhasil dihapus')}
+    if(res.ok){setEmployees(prev=>prev.filter(e=>e.id!==id));bulk.clear([id]);flash('✓ Karyawan berhasil dihapus')}
     else alert('Gagal menghapus')
+  }
+
+  async function bulkDeleteEmployees(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} karyawan yang dipilih? Tidak bisa dibatalkan.`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/employees?id=${id}`,{method:'DELETE'})))
+    setEmployees(prev=>prev.filter(e=>!ids.includes(e.id)))
+    bulk.clear(); setBulkDeleting(false)
+    flash(`✓ ${ids.length} karyawan berhasil dihapus`)
   }
 
   function handleExport(){
@@ -237,17 +251,31 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
               <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah</button>
             </div>
           </div>
-          <div className="text-[10.5px] text-slate-400">
-            Menampilkan <strong className="text-slate-800">{filtered.length}</strong> karyawan
-            {activeTab==='active'?' aktif':activeTab==='resigned'?' resign':' end OC'}
-            {(fEntity||fDiv)&&<span> · difilter</span>}
+          <div className="flex items-center justify-between">
+            <div className="text-[10.5px] text-slate-400">
+              Menampilkan <strong className="text-slate-800">{filtered.length}</strong> karyawan
+              {activeTab==='active'?' aktif':activeTab==='resigned'?' resign':' end OC'}
+              {(fEntity||fDiv)&&<span> · difilter</span>}
+            </div>
+            <BulkBar count={bulk.count} onDelete={bulkDeleteEmployees} deleting={bulkDeleting} label="karyawan"/>
           </div>
           <div className="card overflow-x-auto">
-            <table className="tbl" style={{minWidth:860}}>
-              <thead><tr><th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>End date</th><th className="text-center">Aksi</th></tr></thead>
+            <table className="tbl" style={{minWidth:880}}>
+              <thead><tr>
+                <th className="w-8">
+                  <input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                    checked={bulk.isAllChecked(filtered.map(e=>e.id))}
+                    onChange={()=>bulk.toggleAll(filtered.map(e=>e.id))}/>
+                </th>
+                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>End date</th><th className="text-center">Aksi</th>
+              </tr></thead>
               <tbody>
                 {filtered.map(e=>(
-                  <tr key={e.id}>
+                  <tr key={e.id} className={bulk.isChecked(e.id)?'bg-blue-50/50':''}>
+                    <td className="text-center">
+                      <input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                        checked={bulk.isChecked(e.id)} onChange={()=>bulk.toggle(e.id)}/>
+                    </td>
                     <td><div className="flex items-center gap-2"><Avatar name={e.full_name} size="sm"/><div><div className="font-bold text-[12px]">{e.full_name}</div><div className="text-[10px] text-slate-300">{e.employee_id}</div></div></div></td>
                     <td className="text-[11px] text-slate-600">{e.position}</td>
                     <td className="text-[11px]">{e.division}</td>

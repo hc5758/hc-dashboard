@@ -1,5 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { Plus, Pencil, Trash2, Download, Upload } from 'lucide-react'
 import { KPICard, Badge, InlineBar, InsightCard, EmptyState } from '@/components/ui'
 import { fmtDate, calcYoS, cn } from '@/lib/utils'
@@ -13,6 +15,8 @@ const EMPTY = { employee_id:'', pic_name:'', report_date:'', quarter:'Q2', year:
 
 export default function TurnoverClient({ offboarding: initOff, employees, active }: { offboarding:any[]; employees:any[]; active:any[] }) {
   const [offboarding, setOff] = useState(initOff)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [filterYear, setFilterYear] = useState<number|null>(null) // null = semua tahun
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string|null>(null)
@@ -68,6 +72,16 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
     if (!confirm('Hapus data offboarding ini?')) return
     await fetch(`/api/offboarding?id=${id}`,{method:'DELETE'})
     setOff(prev=>prev.filter(o=>o.id!==id))
+  }
+
+  async function bulkDel(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} data yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/offboarding?id=${id}`,{method:'DELETE'})))
+    setOff(prev=>(prev as any[]).filter((x:any)=>!ids.includes(x.id)))
+    bulk.clear(); setBulkDeleting(false)
   }
 
   async function toggleCheck(o:any, field:string) {
@@ -153,18 +167,20 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
           <div className="flex items-center gap-2">
             <Badge variant="red">{total} total</Badge>
             <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
-            <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Input keluar</button>
+            <BulkBar count={bulk.count} onDelete={bulkDel} deleting={bulkDeleting} label="data"/>
+              <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Input keluar</button>
           </div>
         </div>
         <table className="tbl" style={{minWidth:900}}>
           <thead><tr>
+            <th className="w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isAllChecked(offFiltered.map(o=>o.id))} onChange={()=>bulk.toggleAll(offFiltered.map(o=>o.id))}/></th>
             <th>Nama</th><th>Divisi</th><th>Tipe</th><th>Alasan</th><th>Eff. date</th>
             {CHECKS.map(c=><th key={c} className="text-center text-[9px]">{CHECKS_LABEL[c]}</th>)}
             <th className="text-center">Aksi</th>
           </tr></thead>
           <tbody>
-            {offFiltered.map(o=>(
-              <tr key={o.id}>
+            {offFiltered.map(o=>(<tr key={o.id} className={bulk.isChecked(o.id)?"bg-blue-50/50":""}>
+                <td className="text-center w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isChecked(o.id)} onChange={()=>bulk.toggle(o.id)}/></td>
                 <td className="font-bold">{o.employee?.full_name}</td>
                 <td className="text-[11px] text-slate-400">{o.employee?.division}</td>
                 <td><Badge variant={o.offboard_type==='Resign'?'red':'blue'}>{o.offboard_type==='End of Contract'?'End OC':o.offboard_type}</Badge></td>

@@ -1,5 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { Plus, Pencil, Trash2, Search, ChevronRight, Download, Upload, CheckCircle2, Circle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Badge, EmptyState, TemplateBtn } from '@/components/ui'
@@ -30,6 +32,8 @@ const EMPTY = {
 export default function RecruitmentClient({ recruitment: init }: { recruitment: any[] }) {
   const router = useRouter()
   const [rec, setRec] = useState(init)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [search, setSearch] = useState('')
   const [fProcess, setFProcess] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -94,6 +98,18 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
     if(!confirm('Hapus posisi ini?'))return
     await fetch(`/api/recruitment?id=${id}`,{method:'DELETE'})
     setRec(prev=>prev.filter(r=>r.id!==id))
+    bulk.clear([id])
+    flash('✓ Posisi dihapus')
+  }
+
+  async function bulkDel(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} posisi yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/recruitment?id=${id}`,{method:'DELETE'})))
+    setRec(prev=>prev.filter(r=>!ids.includes(r.id)))
+    bulk.clear(); setBulkDeleting(false); flash(`✓ ${ids.length} posisi dihapus`)
   }
 
   async function updateField(id:string,field:string,val:any){
@@ -170,6 +186,7 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
             <TemplateBtn sheet="Recruitment"/>
             <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
             <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
+            <BulkBar count={bulk.count} onDelete={bulkDel} deleting={bulkDeleting} label="posisi"/>
             <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah Posisi</button>
           </div>
         </div>
@@ -193,7 +210,8 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
                 const isActive = !['On Hold','Cancelled',''].includes(hp)
 
                 return(
-                  <tr key={r.id}>
+                  <tr key={r.id} className={bulk.isChecked(r.id)?"bg-blue-50/50":""}>
+                    <td className="text-center w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isChecked(r.id)} onChange={()=>bulk.toggle(r.id)}/></td>
                     {/* Position — klik masuk detail */}
                     <td style={{minWidth:180}}>
                       <button onClick={()=>router.push(`/recruitment/job/${r.id}`)}

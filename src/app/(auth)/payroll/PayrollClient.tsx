@@ -1,5 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { Plus, Pencil, Trash2, Download, Upload } from 'lucide-react'
 import { Badge, InlineBar, InsightCard, EmptyState, TemplateBtn } from '@/components/ui'
 import { fmtCurrencyShort, cn } from '@/lib/utils'
@@ -46,6 +48,8 @@ function calcPPh21(penghasilanBruto: number, bpjsTK: number, bpjsKes: number): n
 
 export default function PayrollClient({ salary: initSal, employees }: { salary: any[]; employees: any[] }) {
   const [salary, setSalary]           = useState(initSal)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1)
   const [filterYear, setFilterYear]   = useState(2026)
   const [showModal, setShowModal]     = useState(false)
@@ -156,6 +160,16 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
     await fetch(`/api/salary?id=${id}`,{method:'DELETE'})
     setSalary(prev=>prev.filter(s=>s.id!==id))
     flash('✓ Data dihapus')
+  }
+
+  async function bulkDel(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} data salary yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/salary?id=${id}`,{method:'DELETE'})))
+    setSalary(prev=>(prev as any[]).filter((x:any)=>!ids.includes(x.id)))
+    bulk.clear(); setBulkDeleting(false)
   }
 
   function exportXls(){
@@ -282,14 +296,15 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
             <TemplateBtn sheet="Payroll"/>
             <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
             <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
+            <BulkBar count={bulk.count} onDelete={bulkDel} deleting={bulkDeleting} label="data salary"/>
             <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Input Salary</button>
           </div>
         </div>
         <table className="tbl">
-          <thead><tr><th>Karyawan</th><th>Divisi</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Lembur</th><th>Bonus</th><th>Potongan</th><th>Take Home</th><th className="text-center">Aksi</th></tr></thead>
+          <thead><tr><th className="w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isAllChecked(filtered.map(s=>s.id))} onChange={()=>bulk.toggleAll(filtered.map(s=>s.id))}/></th><th>Karyawan</th><th>Divisi</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Lembur</th><th>Bonus</th><th>Potongan</th><th>Take Home</th><th className="text-center">Aksi</th></tr></thead>
           <tbody>
-            {filtered.map(s=>(
-              <tr key={s.id}>
+            {filtered.map(s=>(<tr key={s.id} className={bulk.isChecked(s.id)?"bg-blue-50/50":""}>
+                <td className="text-center w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isChecked(s.id)} onChange={()=>bulk.toggle(s.id)}/></td>
                 <td className="font-semibold">{s.employee?.full_name}</td>
                 <td className="text-[12px] text-slate-400">{s.employee?.division}</td>
                 <td className="text-[12.5px]">{fmtCurrencyShort(s.basic_salary)}</td>

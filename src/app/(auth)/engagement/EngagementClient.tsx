@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { InlineBar, InsightCard, EmptyState } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -18,6 +20,8 @@ export default function EngagementClient({ surveys: initS, surveys2025, offboard
   surveys: any[]; surveys2025: any[]; offboarding: any[]; employees: any[]
 }) {
   const [surveys, setSurveys] = useState(initS)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [year, setYear]       = useState(2026)
   const [quarter, setQuarter] = useState('Q1')
   const [showModal, setShowModal] = useState(false)
@@ -72,6 +76,16 @@ export default function EngagementClient({ surveys: initS, surveys2025, offboard
     await fetch(`/api/engagement?id=${id}`,{method:'DELETE'})
     setSurveys(prev=>prev.filter(s=>s.id!==id))
     flash('✓ Data dihapus')
+  }
+
+  async function bulkDel(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} data yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/engagement?id=${id}`,{method:'DELETE'})))
+    setSurveys(prev=>(prev as any[]).filter((x:any)=>!ids.includes(x.id)))
+    bulk.clear(); setBulkDeleting(false)
   }
 
   const scoreColor = (s:number) => s>=4.0?'text-teal-600':s>=3.5?'text-blue-600':s>=3.0?'text-amber-500':'text-red-500'

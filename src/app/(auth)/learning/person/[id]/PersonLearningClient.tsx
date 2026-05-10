@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { ArrowLeft, ExternalLink, Plus, Pencil, Trash2, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Badge, Avatar, ProgressBar, InsightCard, EmptyState } from '@/components/ui'

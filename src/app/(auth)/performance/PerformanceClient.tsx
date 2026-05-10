@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import BulkBar from '@/components/ui/BulkBar'
+import { useBulkSelect } from '@/lib/useBulkSelect'
 import { Plus, Pencil, Trash2, ChevronRight, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Badge, InlineBar, InsightCard, EmptyState } from '@/components/ui'
@@ -26,6 +28,8 @@ const EMPTY_PIP = { employee_id:'', pic_name:'', type:'SP1', issue_date:'', end_
 export default function PerformanceClient({ pip: initPip, employees, tna, scores: initScores }: { pip:any[]; employees:any[]; tna:any[]; scores:any[] }) {
   const router = useRouter()
   const [pip, setPip] = useState(initPip)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [year, setYear] = useState(2026)
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string|null>(null)
@@ -91,6 +95,16 @@ export default function PerformanceClient({ pip: initPip, employees, tna, scores
     if(!confirm('Hapus record PIP/SP ini?'))return
     await fetch(`/api/pip?id=${id}`,{method:'DELETE'})
     setPip(prev=>prev.filter(p=>p.id!==id))
+  }
+
+  async function bulkDel(){
+    if(bulk.count===0) return
+    if(!confirm(`Hapus ${bulk.count} PIP/SP yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids=[...bulk.checkedIds]
+    await Promise.all(ids.map(id=>fetch(`/api/pip?id=${id}`,{method:'DELETE'})))
+    setPip(prev=>(prev as any[]).filter((x:any)=>!ids.includes(x.id)))
+    bulk.clear(); setBulkDeleting(false)
   }
 
   async function toggleStatus(p:any){
@@ -166,13 +180,14 @@ export default function PerformanceClient({ pip: initPip, employees, tna, scores
       <div className="card overflow-x-auto">
         <div className="card-head">
           <span className="card-title">PIP / SP monitoring</span>
+          <BulkBar count={bulk.count} onDelete={bulkDel} deleting={bulkDeleting} label="PIP/SP"/>
           <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah PIP/SP</button>
         </div>
         <table className="tbl">
-          <thead><tr><th>Karyawan</th><th>Divisi</th><th>Tipe</th><th>Mulai</th><th>Deadline</th><th>Alasan</th><th>Rencana perbaikan</th><th>Status</th><th className="text-center">Aksi</th></tr></thead>
+          <thead><tr><th className="w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isAllChecked(pip.map(p=>p.id))} onChange={()=>bulk.toggleAll(pip.map(p=>p.id))}/></th><th>Karyawan</th><th>Divisi</th><th>Tipe</th><th>Mulai</th><th>Deadline</th><th>Alasan</th><th>Rencana perbaikan</th><th>Status</th><th className="text-center">Aksi</th></tr></thead>
           <tbody>
-            {pip.map(p=>(
-              <tr key={p.id}>
+            {pip.map(p=>(<tr key={p.id} className={bulk.isChecked(p.id)?"bg-blue-50/50":""}>
+                <td className="text-center w-8"><input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer" checked={bulk.isChecked(p.id)} onChange={()=>bulk.toggle(p.id)}/></td>
                 <td className="font-semibold">{p.employee?.full_name}</td>
                 <td className="text-[11.5px] text-slate-400">{p.employee?.division}</td>
                 <td><Badge variant={p.type==='PIP'?'red':'amber'}>{p.type}</Badge></td>
