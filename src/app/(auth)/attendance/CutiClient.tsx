@@ -173,10 +173,11 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const dayMap = useMemo(()=>{
     const map:Record<string,any[]>={}
     leaveThisMonth.forEach(l=>{
-      // Pakai T00:00:00 supaya tidak kena timezone offset
       const s=new Date(l.start_date+'T00:00:00')
       const e=new Date(l.end_date+'T00:00:00')
       for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){
+        const day = d.getDay()
+        if(day===0||day===6) continue // skip Sabtu & Minggu
         const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
         if(!map[key])map[key]=[]
         map[key].push(l)
@@ -472,7 +473,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               </div>
               <div className="p-4">
                 <div className="grid grid-cols-7 mb-1">
-                  {DAYS.map(d=><div key={d} className="text-center text-[10px] font-semibold text-slate-400 py-1">{d}</div>)}
+                  {DAYS.map((d,i)=><div key={d} className={cn('text-center text-[10px] font-semibold py-1',i>=5?'text-slate-300':'text-slate-400')}>{d}</div>)}
                 </div>
                 <div className="grid grid-cols-7 gap-1">
                   {Array.from({length:offset}).map((_,i)=><div key={`e${i}`}/>)}
@@ -482,19 +483,28 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                     const isToday=dateStr===todayStr
                     const isSel=dateStr===selected
                     const dayLeave=dayMap[dateStr]??[]
+                    // Hitung hari dalam minggu: offset adalah firstDay (0=Sen di grid kita)
+                    const colIndex=(offset+i)%7 // 0=Sen ... 5=Sab, 6=Min
+                    const isWeekend=colIndex>=5
                     return(
-                      <div key={day} onClick={()=>setSelected(isSel?null:dateStr)}
-                        className={cn('rounded-xl p-1.5 cursor-pointer transition-all min-h-[56px] flex flex-col',
-                          isToday?'bg-[#0f1e3d] text-white':isSel?'bg-teal-50 border-2 border-teal-400':dayLeave.length>0?'bg-slate-50 hover:bg-slate-100':'hover:bg-slate-50')}>
-                        <div className={cn('text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full mb-0.5',isToday?'bg-white text-[#0f1e3d]':'text-slate-700')}>{day}</div>
-                        <div className="flex flex-col gap-0.5 overflow-hidden">
-                          {dayLeave.slice(0,2).map((l,idx)=>(
-                            <div key={idx} className={cn('text-[8px] font-semibold text-white rounded px-1 truncate',typeColorMap[l.leave_type]??'bg-gray-400')}>
-                              {l.employee?.full_name?.split(' ')[0]}
-                            </div>
-                          ))}
-                          {dayLeave.length>2&&<div className="text-[8px] text-slate-400">+{dayLeave.length-2}</div>}
-                        </div>
+                      <div key={day} onClick={()=>!isWeekend&&setSelected(isSel?null:dateStr)}
+                        className={cn('rounded-xl p-1.5 transition-all min-h-[56px] flex flex-col',
+                          isWeekend?'bg-slate-50/60 cursor-default opacity-50':
+                          isToday?'bg-[#0f1e3d] text-white cursor-pointer':
+                          isSel?'bg-teal-50 border-2 border-teal-400 cursor-pointer':
+                          dayLeave.length>0?'bg-slate-50 hover:bg-slate-100 cursor-pointer':'hover:bg-slate-50 cursor-pointer'
+                        )}>
+                        <div className={cn('text-[12px] font-semibold w-6 h-6 flex items-center justify-center rounded-full mb-0.5',isToday?'bg-white text-[#0f1e3d]':isWeekend?'text-slate-300':'text-slate-700')}>{day}</div>
+                        {!isWeekend&&(
+                          <div className="flex flex-col gap-0.5 overflow-hidden">
+                            {dayLeave.slice(0,2).map((l,idx)=>(
+                              <div key={idx} className={cn('text-[8px] font-semibold text-white rounded px-1 truncate',typeColorMap[l.leave_type]??'bg-gray-400')}>
+                                {l.employee?.full_name?.split(' ')[0]}
+                              </div>
+                            ))}
+                            {dayLeave.length>2&&<div className="text-[8px] text-slate-400">+{dayLeave.length-2}</div>}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
