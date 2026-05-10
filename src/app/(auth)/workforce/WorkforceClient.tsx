@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Search, Download, Upload, Plus, Pencil, Trash2 } from 'lucide-react'
-import { KPICard, Badge, StatusBadge, Avatar, InlineBar, InsightCard, EmptyState } from '@/components/ui'
+import { KPICard, Badge, StatusBadge, Avatar, InlineBar, InsightCard, EmptyState, TemplateBtn } from '@/components/ui'
 import { fmtDate, calcYoS, statusLabel, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
@@ -231,6 +231,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
             <div className="flex items-center gap-2">
               {msg&&<span className={cn('text-[10.5px] font-medium',msg.startsWith('✓')?'text-teal-600':msg.startsWith('✗')?'text-red-600':'text-amber-600')}>{msg}</span>}
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImport} className="hidden"/>
+              <TemplateBtn sheet="Workforce"/>
               <button onClick={()=>fileRef.current?.click()} disabled={importing} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
               <button onClick={handleExport} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
               <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Tambah</button>

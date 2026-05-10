@@ -100,3 +100,20 @@ export function EmptyState({ message='Belum ada data' }: { message?:string }) {
 export function Spinner() {
   return <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"/></div>
 }
+
+// Template download button — arahkan ke sheet tertentu di file template
+export function TemplateBtn({ sheet }: { sheet: string }) {
+  return (
+    <a
+      href="/templates/template-import-hc-dashboard.xlsx"
+      download="template-import-hc-dashboard.xlsx"
+      title={`Download template ${sheet}`}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 transition-all"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Template
+    </a>
+  )
+}

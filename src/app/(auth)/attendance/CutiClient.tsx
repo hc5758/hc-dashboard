@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useRef } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Bell, Trash2, Pencil, Upload, Download } from 'lucide-react'
-import { KPICard, Badge, EmptyState } from '@/components/ui'
+import { KPICard, Badge, EmptyState, TemplateBtn } from '@/components/ui'
 import { fmtDate, calcYoS, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
@@ -139,32 +139,36 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     const carryOver = bal?.annual_carryover ?? calcCarryOver(prevRemaining)
 
     // Hanya cuti Tahunan yang ngurangi saldo
-    const annualUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const annualUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
     const annualTotal = annualEntitled + carryOver
     const annualLeft  = annualTotal - annualUsed
 
     // Cuti khusus (tidak ngurangi tahunan)
-    const sickUsed    = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
-    const specialUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const sickUsed    = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const specialUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
     const otEntitled  = bal?.overtime_entitled ?? 0
-    const otUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date).getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
+    const otUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
 
     return { annualEntitled, carryOver, annualTotal, annualUsed, annualLeft, sickUsed, specialUsed, otEntitled, otUsed, otLeft: otEntitled-otUsed }
   }
 
   // ── Calendar ─────────────────────────────────────────────
   const leaveThisMonth = useMemo(()=>leave.filter(l=>{
-    const s=new Date(l.start_date),e=new Date(l.end_date)
-    const ms=new Date(calY,calM,1),me=new Date(calY,calM+1,0)
+    const s=new Date(l.start_date+'T00:00:00')
+    const e=new Date(l.end_date+'T00:00:00')
+    const ms=new Date(calY,calM,1)
+    const me=new Date(calY,calM+1,0)
     return s<=me&&e>=ms&&l.status==='Approved'
   }),[leave,calY,calM])
 
   const dayMap = useMemo(()=>{
     const map:Record<string,any[]>={}
     leaveThisMonth.forEach(l=>{
-      const s=new Date(l.start_date),e=new Date(l.end_date)
+      // Pakai T00:00:00 supaya tidak kena timezone offset
+      const s=new Date(l.start_date+'T00:00:00')
+      const e=new Date(l.end_date+'T00:00:00')
       for(let d=new Date(s);d<=e;d.setDate(d.getDate()+1)){
-        const key=d.toISOString().slice(0,10)
+        const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
         if(!map[key])map[key]=[]
         map[key].push(l)
       }
@@ -187,16 +191,41 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   function nextMonth(){if(calM===11){setCalM(0);setCalY(y=>y+1)}else setCalM(m=>m+1);setSelected(null)}
 
   // ── CRUD Leave ───────────────────────────────────────────
-  function onDateChange(field:'start_date'|'end_date',val:string){
-    const next={...leaveForm,[field]:val}
-    if(next.start_date&&next.end_date){
+
+  // Issue #4: auto-generate end_date dari start_date + total_days
+  function calcEndDate(startStr: string, days: number): string {
+    if (!startStr || days < 1) return startStr
+    const d = new Date(startStr + 'T00:00:00')
+    let added = 0
+    while (added < days - 1) {
+      d.setDate(d.getDate() + 1)
+      const day = d.getDay()
+      if (day !== 0 && day !== 6) added++
+    }
+    return d.toISOString().slice(0, 10)
+  }
+
+  function onDateChange(field: 'start_date'|'end_date', val: string){
+    const next = {...leaveForm, [field]: val}
+    // Kalau end_date lebih awal dari start_date, reset end_date
+    if (next.start_date && next.end_date && next.end_date < next.start_date) {
+      next.end_date = next.start_date
+    }
+    if (next.start_date && next.end_date) {
       const workdays = calcWorkdays(next.start_date, next.end_date)
       next.total_days = workdays
-      // Update annual_days and special_days proportionally for combined mode
-      if(next.is_combined){
-        // Reset combined days to total workdays
+      if (next.is_combined) {
         next.annual_days = Math.max(0, workdays - (next.special_days||0))
       }
+    }
+    setLeaveForm(next)
+  }
+
+  // Issue #4: saat total_days diubah manual → auto update end_date
+  function onTotalDaysChange(days: number) {
+    const next = {...leaveForm, total_days: days}
+    if (next.start_date && days > 0) {
+      next.end_date = calcEndDate(next.start_date, days)
     }
     setLeaveForm(next)
   }
@@ -541,6 +570,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               <button onClick={()=>setShowOTModal(true)} className="btn btn-teal btn-sm">+ Tambah Overtime Leave</button>
               <button onClick={exportSaldo} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
               <input ref={saldoFileRef} type="file" accept=".xlsx,.xls" onChange={importSaldo} className="hidden"/>
+              <TemplateBtn sheet="Saldo Cuti"/>
               <button onClick={()=>saldoFileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
               {saldoMsg&&<span className={cn('text-[11px] font-medium',saldoMsg.startsWith('✓')?'text-teal-600':'text-red-500')}>{saldoMsg}</span>}
             </div>
@@ -652,9 +682,17 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="form-label">Hari Cuti Tahunan</label>
-                    <input type="number" value={leaveForm.annual_days} min={0}
-                      onChange={e=>{const v=parseInt(e.target.value)||0;lf('annual_days',v);lf('total_days',v+(leaveForm.special_days||0));lf('leave_type','Tahunan')}}
-                      className="form-input" placeholder="0"/>
+                    <input type="number"
+                      value={leaveForm.annual_days===0?'':leaveForm.annual_days}
+                      min={0}
+                      onChange={e=>{
+                        const v=parseInt(e.target.value)||0
+                        const total=v+(leaveForm.special_days||0)
+                        setLeaveForm((p:any)=>({...p,annual_days:v,total_days:total,leave_type:'Tahunan',
+                          end_date: p.start_date ? calcEndDate(p.start_date, total) : p.end_date
+                        }))
+                      }}
+                      className="form-input" placeholder="Jumlah hari"/>
                     {leaveForm.employee_id&&(()=>{
                       const s=getSaldo(leaveForm.employee_id,new Date().getFullYear())
                       return <div className="text-[10.5px] text-teal-600 mt-1">Sisa saldo: {s.annualLeft} hr</div>
@@ -662,9 +700,37 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                   </div>
                   <div>
                     <label className="form-label">Hari Cuti Khusus</label>
-                    <input type="number" value={leaveForm.special_days} min={0}
-                      onChange={e=>{const v=parseInt(e.target.value)||0;lf('special_days',v);lf('total_days',(leaveForm.annual_days||0)+v)}}
-                      className="form-input" placeholder="0"/>
+                    {/* Issue #3: max sesuai saldo SPECIAL_TYPES */}
+                    {leaveForm.special_type&&(()=>{
+                      const st=SPECIAL_TYPES.find(t=>t.key===leaveForm.special_type)
+                      const maxDays=st?.entitled??99
+                      return(
+                        <input type="number"
+                          value={leaveForm.special_days===0?'':leaveForm.special_days}
+                          min={0} max={maxDays}
+                          onChange={e=>{
+                            const v=Math.min(parseInt(e.target.value)||0,maxDays)
+                            const total=(leaveForm.annual_days||0)+v
+                            setLeaveForm((p:any)=>({...p,special_days:v,total_days:total,
+                              end_date: p.start_date ? calcEndDate(p.start_date, total) : p.end_date
+                            }))
+                          }}
+                          className="form-input" placeholder={`Maks ${maxDays} hr`}/>
+                      )
+                    })()}
+                    {!leaveForm.special_type&&(
+                      <input type="number"
+                        value={leaveForm.special_days===0?'':leaveForm.special_days}
+                        min={0}
+                        onChange={e=>{
+                          const v=parseInt(e.target.value)||0
+                          const total=(leaveForm.annual_days||0)+v
+                          setLeaveForm((p:any)=>({...p,special_days:v,total_days:total,
+                            end_date: p.start_date ? calcEndDate(p.start_date, total) : p.end_date
+                          }))
+                        }}
+                        className="form-input" placeholder="Pilih jenis dulu"/>
+                    )}
                   </div>
                 </div>
                 <div><label className="form-label">Jenis Cuti Khusus</label>
@@ -726,7 +792,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="form-label">Total Hari</label><input type="number" value={leaveForm.total_days} onChange={e=>lf('total_days',parseInt(e.target.value))} className="form-input" min={1}/></div>
+              <div><label className="form-label">Total Hari</label><input type="number" value={leaveForm.total_days} onChange={e=>onTotalDaysChange(parseInt(e.target.value)||1)} className="form-input" min={1}/></div>
               <div><label className="form-label">Status</label>
                 <select value={leaveForm.status} onChange={e=>lf('status',e.target.value)} className="form-input">
                   <option>Approved</option><option>Pending</option><option>Rejected</option>

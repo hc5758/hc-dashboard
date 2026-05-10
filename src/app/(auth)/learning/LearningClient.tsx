@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react'
 import { Plus, ChevronRight, Search, Download, Upload } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { Badge, InsightCard, EmptyState, ProgressBar, Avatar } from '@/components/ui'
+import { Badge, InsightCard, EmptyState, ProgressBar, Avatar, TemplateBtn } from '@/components/ui'
 import { fmtDate, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
@@ -125,6 +125,7 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
         <div className="ml-auto flex items-center gap-2">
           {msg&&<span className={cn('text-[11px] font-medium',msg.startsWith('✓')?'text-teal-600':'text-red-600')}>{msg}</span>}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={importXls} className="hidden"/>
+          <TemplateBtn sheet="Learning TNA"/>
           <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
           <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
           <button onClick={()=>setShowModal(true)} className="btn btn-teal btn-sm"><Plus size={12}/> Quick add</button>

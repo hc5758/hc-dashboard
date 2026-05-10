@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, Download, Upload } from 'lucide-react'
-import { Badge, InlineBar, InsightCard, EmptyState } from '@/components/ui'
+import { Badge, InlineBar, InsightCard, EmptyState, TemplateBtn } from '@/components/ui'
 import { fmtCurrencyShort, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
@@ -279,6 +279,7 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
           <div className="flex items-center gap-2">
             {msg&&<span className={cn('text-[11px] font-medium',msg.startsWith('✓')?'text-teal-600':'text-red-500')}>{msg}</span>}
             <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={importXls} className="hidden"/>
+            <TemplateBtn sheet="Payroll"/>
             <button onClick={()=>fileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
             <button onClick={exportXls} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
             <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12}/> Input Salary</button>
