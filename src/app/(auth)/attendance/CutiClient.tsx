@@ -1,9 +1,10 @@
 'use client'
-import { useState, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Bell, Trash2, Pencil } from 'lucide-react'
+import { useState, useMemo, useRef } from 'react'
+import { Plus, ChevronLeft, ChevronRight, Bell, Trash2, Pencil, Upload, Download } from 'lucide-react'
 import { KPICard, Badge, EmptyState } from '@/components/ui'
 import { fmtDate, calcYoS, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
+import * as XLSX from 'xlsx'
 
 const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 const DAYS   = ['Sen','Sel','Rab','Kam','Jum','Sab','Min']
@@ -37,6 +38,22 @@ function calcCarryOver(prevRemaining: number): number {
   return Math.min(prevRemaining, 5)
 }
 
+// Hitung hari kerja (Senin-Jumat) antara dua tanggal, inklusif
+function calcWorkdays(startStr: string, endStr: string): number {
+  if (!startStr || !endStr) return 1
+  const start = new Date(startStr + 'T00:00:00')
+  const end   = new Date(endStr   + 'T00:00:00')
+  if (end < start) return 1
+  let count = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const day = cur.getDay() // 0=Sun, 6=Sat
+    if (day !== 0 && day !== 6) count++
+    cur.setDate(cur.getDate() + 1)
+  }
+  return Math.max(1, count)
+}
+
 // Cuti yang TIDAK ngurangin saldo tahunan
 const NON_ANNUAL_TYPES = ['Sakit','Penting','Melahirkan','Cuti Bersama','Overtime','Unpaid']
 
@@ -56,6 +73,48 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const [editId, setEditId]     = useState<string|null>(null)
   const [saving, setSaving]     = useState(false)
   const [leaveForm, setLeaveForm] = useState<any>(EMPTY_LEAVE)
+  const [saldoMsg, setSaldoMsg] = useState('')
+  const saldoFileRef = useRef<HTMLInputElement>(null)
+  const flashSaldo = (t:string)=>{setSaldoMsg(t);setTimeout(()=>setSaldoMsg(''),4000)}
+
+  async function importSaldo(e: React.ChangeEvent<HTMLInputElement>){
+    const file=e.target.files?.[0]; if(!file)return
+    flashSaldo('Membaca file...')
+    try{
+      const buf=await file.arrayBuffer(); const wb=XLSX.read(buf)
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      let count=0
+      for(const row of rows){
+        const empName=row['Nama']||''
+        const emp=employees.find((ex:any)=>ex.full_name.toLowerCase()===empName.toLowerCase())
+        if(!emp) continue
+        const payload={employee_id:emp.id,year:parseInt(row['Tahun'])||saldoYear,annual_entitled:parseInt(row['Hak Tahunan'])||12,annual_carryover:Math.min(parseInt(row['Carry-over'])||0,5),annual_used:parseInt(row['Terpakai'])||0,overtime_entitled:parseInt(row['Hak OT'])||0,overtime_used:parseInt(row['OT Terpakai'])||0,notes:row['Catatan']||''}
+        const res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+        const data=await res.json()
+        if(res.ok&&data.data){
+          setBalances((prev:any[])=>{
+            const exists=prev.find((b:any)=>b.employee_id===emp.id&&b.year===payload.year)
+            if(exists) return prev.map((b:any)=>b.employee_id===emp.id&&b.year===payload.year?{...data.data,employee:emp}:b)
+            return [{...data.data,employee:emp},...prev]
+          })
+          count++
+        }
+      }
+      flashSaldo(`✓ ${count} data saldo berhasil diimport`)
+    }catch(err:any){flashSaldo(`✗ Error: ${err.message}`)}
+    if(saldoFileRef.current) saldoFileRef.current.value=''
+  }
+
+  function exportSaldo(){
+    const rows=employees.map(emp=>{
+      const s=getSaldo(emp.id,saldoYear)
+      return {'Nama':emp.full_name,'Divisi':emp.division,'Masa Kerja':calcYoS(emp.join_date),'Tahun':saldoYear,'Hak Tahunan':s.annualEntitled,'Carry-over':s.carryOver,'Terpakai':s.annualUsed,'Sisa Tahunan':s.annualLeft,'Sakit':s.sickUsed,'Khusus':s.specialUsed,'Hak OT':s.otEntitled,'OT Terpakai':s.otUsed,'OT Sisa':s.otLeft}
+    })
+    const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb,ws,'Saldo Cuti')
+    XLSX.writeFile(wb,`saldo-cuti-${saldoYear}.xlsx`)
+    flashSaldo('✓ Export berhasil')
+  }
   const [balForm, setBalForm]     = useState<any>(EMPTY_BAL)
   const [activeTab, setActiveTab] = useState<'calendar'|'saldo'>('calendar')
   const [saldoYear, setSaldoYear] = useState(2026)
@@ -130,7 +189,15 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   // ── CRUD Leave ───────────────────────────────────────────
   function onDateChange(field:'start_date'|'end_date',val:string){
     const next={...leaveForm,[field]:val}
-    if(next.start_date&&next.end_date){next.total_days=Math.max(1,Math.round((new Date(next.end_date).getTime()-new Date(next.start_date).getTime())/86400000)+1)}
+    if(next.start_date&&next.end_date){
+      const workdays = calcWorkdays(next.start_date, next.end_date)
+      next.total_days = workdays
+      // Update annual_days and special_days proportionally for combined mode
+      if(next.is_combined){
+        // Reset combined days to total workdays
+        next.annual_days = Math.max(0, workdays - (next.special_days||0))
+      }
+    }
     setLeaveForm(next)
   }
 
@@ -472,6 +539,10 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 </div>
               </div>
               <button onClick={()=>setShowOTModal(true)} className="btn btn-teal btn-sm">+ Tambah Overtime Leave</button>
+              <button onClick={exportSaldo} className="btn btn-ghost btn-sm"><Download size={12}/> Export</button>
+              <input ref={saldoFileRef} type="file" accept=".xlsx,.xls" onChange={importSaldo} className="hidden"/>
+              <button onClick={()=>saldoFileRef.current?.click()} className="btn btn-ghost btn-sm"><Upload size={12}/> Import</button>
+              {saldoMsg&&<span className={cn('text-[11px] font-medium',saldoMsg.startsWith('✓')?'text-teal-600':'text-red-500')}>{saldoMsg}</span>}
             </div>
             <div className="overflow-x-auto">
               <table className="tbl" style={{minWidth:1000}}>
@@ -646,6 +717,14 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
               <div><label className="form-label">Tanggal Mulai *</label><input type="date" value={leaveForm.start_date} onChange={e=>onDateChange('start_date',e.target.value)} className="form-input"/></div>
               <div><label className="form-label">Tanggal Selesai *</label><input type="date" value={leaveForm.end_date} onChange={e=>onDateChange('end_date',e.target.value)} className="form-input"/></div>
             </div>
+            {leaveForm.start_date&&leaveForm.end_date&&(
+              <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-4 py-2.5 text-[12px]">
+                <span className="text-slate-500">Hari kerja (Sen–Jum):</span>
+                <span className="font-bold text-[#0f1e3d]">{calcWorkdays(leaveForm.start_date, leaveForm.end_date)} hari</span>
+                <span className="text-slate-400">·</span>
+                <span className="text-slate-400">Total kalender: {Math.round((new Date(leaveForm.end_date).getTime()-new Date(leaveForm.start_date).getTime())/86400000)+1} hari</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="form-label">Total Hari</label><input type="number" value={leaveForm.total_days} onChange={e=>lf('total_days',parseInt(e.target.value))} className="form-input" min={1}/></div>
               <div><label className="form-label">Status</label>
