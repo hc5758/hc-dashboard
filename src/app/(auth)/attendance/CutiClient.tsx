@@ -270,6 +270,19 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   async function saveLeave(){
     if(!leaveForm.employee_id||!leaveForm.start_date||!leaveForm.end_date){alert('Pilih karyawan dan tanggal');return}
+
+    // Validasi saldo OT — cek dulu sebelum save
+    if(!leaveForm.is_combined && leaveForm.leave_type==='Overtime'){
+      const s = getSaldo(leaveForm.employee_id, new Date(leaveForm.start_date+'T00:00:00').getFullYear())
+      if(s.otLeft <= 0){
+        alert(`Saldo Overtime Leave ${leaveForm.employee_id} sudah habis (Hak OT: ${s.otEntitled}, Terpakai: ${s.otUsed}).\n\nTambah Hak OT dulu di tab Saldo Cuti → Edit → Hak OT.`)
+        return
+      }
+      if(leaveForm.total_days > s.otLeft){
+        alert(`Saldo OT tidak cukup. Sisa: ${s.otLeft} hari, diminta: ${leaveForm.total_days} hari.`)
+        return
+      }
+    }
     setSaving(true)
     try{
       const year=new Date(leaveForm.start_date+'T00:00:00').getFullYear()
@@ -371,12 +384,15 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     if(!balForm.employee_id){alert('Pilih karyawan');return}
     setSaving(true)
     try{
-      const res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(balForm)})
+      const existing = balances.find(b=>b.employee_id===balForm.employee_id&&b.year===balForm.year)
+      const method = existing ? 'PATCH' : 'POST'
+      const payload = existing ? {id: existing.id, ...balForm} : balForm
+      const res=await fetch('/api/leave-balance',{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
       const data=await res.json();if(!res.ok)throw new Error(data.error)
       const emp=employees.find(e=>e.id===balForm.employee_id)
       setBalances(prev=>{
-        const exists=prev.find(b=>b.employee_id===balForm.employee_id)
-        if(exists)return prev.map(b=>b.employee_id===balForm.employee_id?{...data.data,employee:emp}:b)
+        const exists=prev.find(b=>b.employee_id===balForm.employee_id&&b.year===balForm.year)
+        if(exists)return prev.map(b=>b.employee_id===balForm.employee_id&&b.year===balForm.year?{...data.data,employee:emp}:b)
         return [{...data.data,employee:emp},...prev]
       })
       setShowBalModal(false)
@@ -778,11 +794,13 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                     <th className="text-center bg-green-50 text-[9px]">Hak OT</th>
                     <th className="text-center bg-green-50 text-[9px]">OT Pakai</th>
                     <th className="text-center bg-green-50 text-[9px]">OT Sisa</th>
+                    <th className="text-center text-[9px]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map(emp=>{
                     const s = getSaldo(emp.id, saldoYear)
+                    const bal = balances.find(b=>b.employee_id===emp.id&&b.year===saldoYear)
                     return(
                       <tr key={emp.id}>
                         <td className="font-semibold text-[12.5px]">{emp.full_name}</td>
@@ -802,6 +820,21 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                         <td className="text-center text-slate-500">{s.otUsed}</td>
                         <td className="text-center">
                           <span className={cn('text-[13px] font-bold',s.otLeft>0?'text-green-600':'text-slate-300')}>{s.otLeft}</span>
+                        </td>
+                        <td className="text-center">
+                          <button onClick={()=>{
+                            setBalForm({
+                              employee_id: emp.id,
+                              year: saldoYear,
+                              annual_entitled: bal?.annual_entitled ?? 12,
+                              annual_carryover: bal?.annual_carryover ?? s.carryOver,
+                              overtime_entitled: bal?.overtime_entitled ?? 0,
+                              notes: bal?.notes ?? '',
+                            })
+                            setShowBalModal(true)
+                          }} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 mx-auto">
+                            <Pencil size={12}/>
+                          </button>
                         </td>
                       </tr>
                     )
@@ -1005,6 +1038,70 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
       {/* ── MODAL: Tambah Overtime Leave ── */}
       {showOTModal&&(<OvertimeModal employees={employees} balances={balances} onSave={saveOT} onClose={()=>setShowOTModal(false)}/>)}
+
+      {/* ── MODAL: Edit Saldo Cuti ── */}
+      {showBalModal&&(
+        <Modal title="Edit Saldo Cuti" onClose={()=>setShowBalModal(false)}>
+          <div className="space-y-4">
+            {/* Nama karyawan */}
+            <div className="bg-slate-50 rounded-xl px-4 py-3">
+              <div className="text-[12px] font-semibold text-slate-700">
+                {employees.find(e=>e.id===balForm.employee_id)?.full_name}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {employees.find(e=>e.id===balForm.employee_id)?.division} · {balForm.year}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="form-label">Hak Tahunan</label>
+                <input type="number" min={0} max={30}
+                  value={balForm.annual_entitled}
+                  onChange={e=>setBalForm((p:any)=>({...p,annual_entitled:parseInt(e.target.value)||0}))}
+                  className="form-input"/>
+                <div className="text-[10.5px] text-slate-400 mt-1">Default: 12 hari/tahun</div>
+              </div>
+              <div>
+                <label className="form-label">Carry-over (maks 5)</label>
+                <input type="number" min={0} max={5}
+                  value={balForm.annual_carryover}
+                  onChange={e=>setBalForm((p:any)=>({...p,annual_carryover:Math.min(parseInt(e.target.value)||0,5)}))}
+                  className="form-input"/>
+                <div className="text-[10.5px] text-slate-400 mt-1">Sisa cuti tahun lalu, hangus Juli</div>
+              </div>
+            </div>
+
+            <div>
+              <label className="form-label">Hak Overtime Leave</label>
+              <input type="number" min={0}
+                value={balForm.overtime_entitled}
+                onChange={e=>setBalForm((p:any)=>({...p,overtime_entitled:parseInt(e.target.value)||0}))}
+                className="form-input"/>
+              <div className="text-[10.5px] text-slate-400 mt-1">Jumlah hari OT yang disetujui HC</div>
+            </div>
+
+            <div>
+              <label className="form-label">Catatan</label>
+              <input value={balForm.notes||''}
+                onChange={e=>setBalForm((p:any)=>({...p,notes:e.target.value}))}
+                className="form-input" placeholder="Alasan penyesuaian saldo..."/>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-[12px] text-blue-700">
+              Total saldo tahunan: <strong>{(balForm.annual_entitled||0)+(balForm.annual_carryover||0)} hari</strong>
+              <span className="text-blue-400 ml-2">({balForm.annual_entitled} hak + {balForm.annual_carryover} carry-over)</span>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={()=>setShowBalModal(false)} className="btn btn-ghost">Batal</button>
+              <button onClick={saveBalance} disabled={saving} className="btn btn-teal">
+                {saving?'Menyimpan...':'Simpan Saldo'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
