@@ -196,13 +196,14 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   function calcEndDate(startStr: string, days: number): string {
     if (!startStr || days < 1) return startStr
     const d = new Date(startStr + 'T00:00:00')
-    let added = 0
-    while (added < days - 1) {
+    // Hari pertama (start_date) = hari ke-1, loop tambah sisanya
+    let counted = 1
+    while (counted < days) {
       d.setDate(d.getDate() + 1)
-      const day = d.getDay()
-      if (day !== 0 && day !== 6) added++
+      const day = d.getDay() // 0=Sun, 6=Sat
+      if (day !== 0 && day !== 6) counted++
     }
-    return d.toISOString().slice(0, 10)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }
 
   function onDateChange(field: 'start_date'|'end_date', val: string){
