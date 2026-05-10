@@ -261,7 +261,8 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   // Refetch semua data cuti dari API — pastikan tanggal dan employee join benar
   async function refetchLeave() {
-    const res = await fetch('/api/leave')
+    // cache: 'no-store' supaya tidak pakai cached response dari browser
+    const res = await fetch('/api/leave', { cache: 'no-store' })
     const data = await res.json()
     if (data.data) setLeave(data.data)
   }

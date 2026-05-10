@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-// Normalize tanggal dari Supabase — pastikan format YYYY-MM-DD bukan ISO timestamp
+// Normalize tanggal dari Supabase — pastikan format YYYY-MM-DD
 function normalizeDates(row: any) {
   if (!row) return row
-  const dateFields = ['start_date', 'end_date']
   const result = { ...row }
-  dateFields.forEach(f => {
-    if (result[f] && result[f].length > 10) {
-      result[f] = result[f].slice(0, 10)
-    }
+  ;['start_date','end_date'].forEach(f => {
+    if (result[f] && result[f].length > 10) result[f] = result[f].slice(0, 10)
   })
   return result
+}
+
+const NO_CACHE = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Pragma': 'no-cache',
 }
 
 export async function GET() {
@@ -21,7 +23,7 @@ export async function GET() {
     .select('*, employee:employees(full_name, division, gender)')
     .order('start_date', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: (data ?? []).map(normalizeDates) })
+  return NextResponse.json({ data: (data ?? []).map(normalizeDates) }, { headers: NO_CACHE })
 }
 
 export async function POST(req: NextRequest) {
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
     .select('*, employee:employees(full_name, division, gender)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: normalizeDates(data) })
+  return NextResponse.json({ data: normalizeDates(data) }, { headers: NO_CACHE })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -46,7 +48,7 @@ export async function PATCH(req: NextRequest) {
     .select('*, employee:employees(full_name, division, gender)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: normalizeDates(data) })
+  return NextResponse.json({ data: normalizeDates(data) }, { headers: NO_CACHE })
 }
 
 export async function DELETE(req: NextRequest) {
@@ -55,5 +57,5 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   const { error } = await db.from('attendance_leave').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true }, { headers: NO_CACHE })
 }

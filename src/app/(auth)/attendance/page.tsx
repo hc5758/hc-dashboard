@@ -2,6 +2,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import CutiClient from './CutiClient'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 function normalizeDates(row: any) {
   if (!row) return row
   const result = { ...row }

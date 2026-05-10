@@ -1,4 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import Topbar from '@/components/layout/Topbar'
 import LearningClient from './LearningClient'
 

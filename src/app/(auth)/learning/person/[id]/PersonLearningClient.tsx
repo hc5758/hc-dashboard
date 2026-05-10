@@ -17,6 +17,8 @@ const EMPTY = {
 export default function PersonLearningClient({ employee, tna: initTna }: { employee: any; tna: any[] }) {
   const router = useRouter()
   const [tna, setTna] = useState(initTna)
+  const bulk = useBulkSelect()
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -82,6 +84,17 @@ export default function PersonLearningClient({ employee, tna: initTna }: { emplo
     if (!confirm('Hapus training ini?')) return
     await fetch(`/api/tna?id=${id}`, { method: 'DELETE' })
     setTna(prev => prev.filter(t => t.id !== id))
+    bulk.clear([id])
+  }
+
+  async function bulkDel() {
+    if (bulk.count === 0) return
+    if (!confirm(`Hapus ${bulk.count} training yang dipilih?`)) return
+    setBulkDeleting(true)
+    const ids = [...bulk.checkedIds]
+    await Promise.all(ids.map(id => fetch(`/api/tna?id=${id}`, { method: 'DELETE' })))
+    setTna(prev => prev.filter(t => !ids.includes(t.id)))
+    bulk.clear(); setBulkDeleting(false)
   }
 
   const STATUS_COLOR: Record<string, string> = { Done: 'teal', 'In Progress': 'blue', Planned: 'gray', Overdue: 'red', Cancelled: 'gray' }
@@ -145,7 +158,10 @@ export default function PersonLearningClient({ employee, tna: initTna }: { emplo
       {/* Training list */}
       <div className="card">
         <div className="card-head">
-          <span className="card-title">Daftar training {employee.full_name.split(' ')[0]}</span>
+          <div className="flex items-center gap-3">
+            <span className="card-title">Daftar training {employee.full_name.split(' ')[0]}</span>
+            <BulkBar count={bulk.count} onDelete={bulkDel} deleting={bulkDeleting} label="training"/>
+          </div>
           <button onClick={openAdd} className="btn btn-teal btn-sm"><Plus size={12} /> Tambah training</button>
         </div>
 
@@ -156,7 +172,10 @@ export default function PersonLearningClient({ employee, tna: initTna }: { emplo
             {tna.map(t => {
               const hasFile = t.notes && t.notes.startsWith('http')
               return (
-                <div key={t.id} className="flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
+                <div key={t.id} className={cn('flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors', bulk.isChecked(t.id)&&'bg-blue-50/50')}>
+                  {/* Checkbox */}
+                  <input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer mt-2 flex-shrink-0"
+                    checked={bulk.isChecked(t.id)} onChange={()=>bulk.toggle(t.id)}/>
                   {/* Status indicator */}
                   <div className={cn('w-2 h-2 rounded-full mt-2 flex-shrink-0',
                     t.status === 'Done' ? 'bg-teal-500' : t.status === 'In Progress' ? 'bg-blue-500' : t.status === 'Overdue' ? 'bg-red-500' : 'bg-slate-300'

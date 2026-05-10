@@ -76,7 +76,10 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
     if(!form.position){alert('Nama posisi wajib diisi');return}
     setSaving(true)
     try{
-      const payload={...form,
+      const DATE_FIELDS = ['request_date','ol_signed_date','join_date','target_date']
+      const cleanForm = {...form}
+      DATE_FIELDS.forEach(f=>{ if(cleanForm[f]==='') cleanForm[f]=null })
+      const payload={...cleanForm,
         status:form.hiring_process==='Joined'?'Hired':form.hiring_process==='OL Signed'?'Offering':['Open','Screening','Interview'].includes(form.hiring_process)?'In Progress':form.hiring_process,
         notes:form.remarks||form.notes
       }
@@ -134,7 +137,7 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
       for(const row of rows){
         if(!row['Position'])continue
         const hp=row['Hiring Process']||'Open'
-        const payload={position:row['Position'],division:row['Division']||'Creative',entity:row['Entity']||'SSR',pic_name:row['Closing Name (PIC HC)']||'',hiring_source:row['Source']||'Job Portal',request_date:row['Request Date']||'',ol_signed_date:row['OL Signed Date']||'',target_date:row['Join Date']||'',join_date:row['Join Date']||'',hiring_process:hp,on_progress_hiring:row['On Progress Hiring']||'',remarks:row['Remarks']||'',notes:row['Notes']||'',budget_allocation:parseFloat(row['Budget Allocation'])||0,status:hp==='Joined'?'Hired':hp==='OL Signed'?'Offering':'In Progress',quarter:'Q2',year:2026}
+        const payload={position:row['Position'],division:row['Division']||'Creative',entity:row['Entity']||'SSR',pic_name:row['Closing Name (PIC HC)']||'',hiring_source:row['Source']||'Job Portal',request_date:row['Request Date']||null,ol_signed_date:row['OL Signed Date']||null,target_date:row['Join Date']||null,join_date:row['Join Date']||null,hiring_process:hp,on_progress_hiring:row['On Progress Hiring']||'',remarks:row['Remarks']||'',notes:row['Notes']||'',budget_allocation:parseFloat(row['Budget Allocation'])||0,status:hp==='Joined'?'Hired':hp==='OL Signed'?'Offering':'In Progress',quarter:'Q2',year:2026}
         const res=await fetch('/api/recruitment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
         const data=await res.json()
         if(res.ok&&data.data){setRec(prev=>[{...data.data,...payload,id:data.data.id},...prev]);count++}
