@@ -207,15 +207,25 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   function onDateChange(field: 'start_date'|'end_date', val: string){
     const next = {...leaveForm, [field]: val}
-    // Kalau end_date lebih awal dari start_date, reset end_date
-    if (next.start_date && next.end_date && next.end_date < next.start_date) {
-      next.end_date = next.start_date
-    }
-    if (next.start_date && next.end_date) {
-      const workdays = calcWorkdays(next.start_date, next.end_date)
-      next.total_days = workdays
-      if (next.is_combined) {
-        next.annual_days = Math.max(0, workdays - (next.special_days||0))
+
+    if (next.is_combined) {
+      // Mode gabungan: end_date selalu auto dari start_date + total_days
+      // Hanya start_date yang bisa diubah user
+      if (field === 'start_date' && next.start_date) {
+        const total = (next.annual_days||0) + (next.special_days||0)
+        if (total > 0) {
+          next.end_date = calcEndDate(next.start_date, total)
+          next.total_days = total
+        }
+      }
+      // end_date di combined mode diabaikan (auto-generated)
+    } else {
+      // Mode biasa: hitung workdays dari range tanggal
+      if (next.start_date && next.end_date && next.end_date < next.start_date) {
+        next.end_date = next.start_date
+      }
+      if (next.start_date && next.end_date) {
+        next.total_days = calcWorkdays(next.start_date, next.end_date)
       }
     }
     setLeaveForm(next)
@@ -688,8 +698,11 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                       onChange={e=>{
                         const v=parseInt(e.target.value)||0
                         const total=v+(leaveForm.special_days||0)
-                        setLeaveForm((p:any)=>({...p,annual_days:v,total_days:total,leave_type:'Tahunan',
-                          end_date: p.start_date ? calcEndDate(p.start_date, total) : p.end_date
+                        setLeaveForm((p:any)=>({...p,
+                          annual_days:v,
+                          total_days:total,
+                          leave_type:'Tahunan',
+                          end_date: p.start_date && total>0 ? calcEndDate(p.start_date, total) : p.end_date
                         }))
                       }}
                       className="form-input" placeholder="Jumlah hari"/>
@@ -781,7 +794,16 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
             )}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="form-label">Tanggal Mulai *</label><input type="date" value={leaveForm.start_date} onChange={e=>onDateChange('start_date',e.target.value)} className="form-input"/></div>
-              <div><label className="form-label">Tanggal Selesai *</label><input type="date" value={leaveForm.end_date} onChange={e=>onDateChange('end_date',e.target.value)} className="form-input"/></div>
+              <div>
+                <label className="form-label">
+                  Tanggal Selesai *
+                  {leaveForm.is_combined&&<span className="ml-1 text-[10px] text-teal-600 font-normal">(auto)</span>}
+                </label>
+                <input type="date" value={leaveForm.end_date}
+                  onChange={e=>onDateChange('end_date',e.target.value)}
+                  readOnly={leaveForm.is_combined}
+                  className={cn('form-input',leaveForm.is_combined?'bg-slate-50 text-slate-500 cursor-not-allowed':'')}/>
+              </div>
             </div>
             {leaveForm.start_date&&leaveForm.end_date&&(
               <div className="flex items-center gap-3 bg-slate-50 rounded-lg px-4 py-2.5 text-[12px]">
