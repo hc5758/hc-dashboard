@@ -119,7 +119,14 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   }
   const [balForm, setBalForm]     = useState<any>(EMPTY_BAL)
   const [activeTab, setActiveTab] = useState<'calendar'|'saldo'>('calendar')
+  const [calFilterYear, setCalFilterYear] = useState(today.getFullYear())
   const [saldoYear, setSaldoYear] = useState(2026)
+
+  // Filter leave by selected year untuk kalender & tabel
+  const leaveByYear = leave.filter(l => {
+    const y = l.start_date ? parseInt(l.start_date.slice(0,4)) : 0
+    return y === calFilterYear
+  })
   const lf = (k:string,v:any) => setLeaveForm((p:any)=>({...p,[k]:v}))
   const bf = (k:string,v:any) => setBalForm((p:any)=>({...p,[k]:v}))
 
@@ -155,13 +162,13 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   }
 
   // ── Calendar ─────────────────────────────────────────────
-  const leaveThisMonth = useMemo(()=>leave.filter(l=>{
+  const leaveThisMonth = useMemo(()=>leaveByYear.filter(l=>{
     const s=new Date(l.start_date+'T00:00:00')
     const e=new Date(l.end_date+'T00:00:00')
     const ms=new Date(calY,calM,1)
     const me=new Date(calY,calM+1,0)
     return s<=me&&e>=ms&&l.status==='Approved'
-  }),[leave,calY,calM])
+  }),[leaveByYear,calY,calM])
 
   const dayMap = useMemo(()=>{
     const map:Record<string,any[]>={}
@@ -181,9 +188,9 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const upcoming = useMemo(()=>{
     const now=new Date();now.setHours(0,0,0,0)
     const in7=new Date(now.getTime()+7*86400000)
-    return leave.filter(l=>{const s=new Date(l.start_date+'T00:00:00');s.setHours(0,0,0,0);return s>=now&&s<=in7&&l.status==='Approved'})
+    return leaveByYear.filter(l=>{const s=new Date(l.start_date+'T00:00:00');s.setHours(0,0,0,0);return s>=now&&s<=in7&&l.status==='Approved'})
       .sort((a,b)=>new Date(a.start_date).getTime()-new Date(b.start_date).getTime())
-  },[leave])
+  },[leaveByYear])
 
   const firstDay=new Date(calY,calM,1).getDay()
   const offset=firstDay===0?6:firstDay-1
@@ -438,6 +445,19 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
       {/* ── TAB: KALENDER ── */}
       {activeTab==='calendar'&&(
         <>
+          {/* Year filter */}
+          <div className="flex items-center gap-2">
+            {[2026,2025,2024].map(y=>(
+              <button key={y} onClick={()=>{setCalFilterYear(y);setCalY(y)}}
+                className={cn('px-3.5 py-1.5 rounded-lg text-[12px] font-semibold border transition-all',
+                  calFilterYear===y?'bg-[#0f1e3d] text-white border-[#0f1e3d]':'bg-white text-slate-500 border-slate-200 hover:border-slate-400')}>
+                {y}
+              </button>
+            ))}
+            <span className="text-[11.5px] text-slate-400 ml-1">
+              {leaveByYear.length} data cuti {calFilterYear}
+            </span>
+          </div>
           <div className="grid grid-cols-3 gap-4">
             {/* Calendar */}
             <div className="col-span-2 card">
@@ -575,8 +595,8 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                 <th className="w-8 text-center">
                   <input type="checkbox"
                     className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
-                    checked={leave.length>0&&leave.every(l=>checkedIds.has(l.id))}
-                    onChange={()=>toggleAll(leave.map(l=>l.id))}/>
+                    checked={leave.length>0&&leaveByYear.every(l=>checkedIds.has(l.id))}
+                    onChange={()=>toggleAll(leaveByYear.map(l=>l.id))}/>
                 </th>
                 <th>Karyawan</th><th>Divisi</th><th>Tipe</th>
                 <th>Mulai</th><th>Selesai</th><th>Total Hari</th>
@@ -590,7 +610,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                   const usedIds = new Set<string>()
 
                   // Sort: Tahunan dulu supaya jadi primary row
-                  const sorted = [...leave].sort((a,b)=>{
+                  const sorted = [...leaveByYear].sort((a,b)=>{
                     if(a.leave_type==='Tahunan'&&b.leave_type!=='Tahunan') return -1
                     if(a.leave_type!=='Tahunan'&&b.leave_type==='Tahunan') return 1
                     return 0
@@ -681,7 +701,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                     )
                   })
                 })()}
-                {leave.length===0&&<EmptyState message="Belum ada data cuti"/>}
+                {leaveByYear.length===0&&<EmptyState message="Belum ada data cuti"/>}
               </tbody>
             </table>
           </div>
