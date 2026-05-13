@@ -24,6 +24,13 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   const [activeTab, setActiveTab] = useState<'active'|'resigned'|'end_contract'>('active')
   const [fEntity,setFEntity]=useState('')
   const [fDiv,setFDiv]=useState('')
+  const [sortCol,setSortCol]=useState<string>('full_name')
+  const [sortDir,setSortDir]=useState<'asc'|'desc'>('asc')
+
+  function toggleSort(col:string){
+    if(sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
   const [msg,setMsg]=useState('')
   const [importing,setImporting]=useState(false)
   const [showModal,setShowModal]=useState(false)
@@ -41,10 +48,26 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
   const divCounts=Object.entries(employees.reduce((acc:any,e)=>{acc[e.division]=(acc[e.division]||0)+1;return acc},{})).sort((a:any,b:any)=>b[1]-a[1])
   const maxDiv=(divCounts[0]?.[1] as number)||1
 
-  const filtered=employees.filter(e=>
-    (!search||e.full_name.toLowerCase().includes(search.toLowerCase())||e.employee_id.toLowerCase().includes(search.toLowerCase())||e.division.toLowerCase().includes(search.toLowerCase()))&&
-    e.status===activeTab&&(!fEntity||e.entity===fEntity)&&(!fDiv||e.division===fDiv)
-  )
+  const filtered = employees
+    .filter(e=>
+      (!search||e.full_name?.toLowerCase().includes(search.toLowerCase())||e.employee_id?.toLowerCase().includes(search.toLowerCase())||e.division?.toLowerCase().includes(search.toLowerCase()))&&
+      e.status===activeTab&&(!fEntity||e.entity===fEntity)&&(!fDiv||e.division===fDiv)
+    )
+    .sort((a,b)=>{
+      let av:any='', bv:any=''
+      if(sortCol==='full_name'){av=a.full_name||'';bv=b.full_name||''}
+      else if(sortCol==='join_date'){av=a.join_date||'';bv=b.join_date||''}
+      else if(sortCol==='end_date'){av=a.end_date||'9999';bv=b.end_date||'9999'}
+      else if(sortCol==='division'){av=a.division||'';bv=b.division||''}
+      else if(sortCol==='yos'){av=a.join_date||'';bv=b.join_date||'';return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av)}
+      else if(sortCol==='employee_id'){
+        const na=parseInt(a.employee_id?.replace(/\D/g,'')||'0')
+        const nb=parseInt(b.employee_id?.replace(/\D/g,'')||'0')
+        return sortDir==='asc'?na-nb:nb-na
+      }
+      if(typeof av==='string') return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av)
+      return sortDir==='asc'?av-bv:bv-av
+    })
 
   function flash(t:string){setMsg(t);setTimeout(()=>setMsg(''),4000)}
   function openAdd(){
@@ -293,7 +316,22 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     checked={bulk.isAllChecked(filtered.map(e=>e.id))}
                     onChange={()=>bulk.toggleAll(filtered.map(e=>e.id))}/>
                 </th>
-                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>Tgl Lahir</th><th>End Kontrak</th><th className="text-center">Aksi</th>
+                <th className="text-center w-16">Aksi</th>
+                {([{col:'full_name',label:'Karyawan'},{col:'division',label:'Divisi'},{col:'employee_id',label:'ID'}] as const).map(({col,label})=>(
+                  <th key={col} className="cursor-pointer select-none hover:text-teal-600" onClick={()=>toggleSort(col)}>
+                    <span className="flex items-center gap-1">{label}<span className="text-[10px] text-slate-300">{sortCol===col?(sortDir==='asc'?'↑':'↓'):'↕'}</span></span>
+                  </th>
+                ))}
+                <th>Posisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th>
+                {([{col:'join_date',label:'Join date'},{col:'yos',label:'Masa kerja'}] as const).map(({col,label})=>(
+                  <th key={col} className="cursor-pointer select-none hover:text-teal-600" onClick={()=>toggleSort(col)}>
+                    <span className="flex items-center gap-1">{label}<span className="text-[10px] text-slate-300">{sortCol===col?(sortDir==='asc'?'↑':'↓'):'↕'}</span></span>
+                  </th>
+                ))}
+                <th>Tgl Lahir</th>
+                <th className="cursor-pointer select-none hover:text-teal-600" onClick={()=>toggleSort('end_date')}>
+                  <span className="flex items-center gap-1">End Kontrak<span className="text-[10px] text-slate-300">{sortCol==='end_date'?(sortDir==='asc'?'↑':'↓'):'↕'}</span></span>
+                </th>
               </tr></thead>
               <tbody>
                 {filtered.map(e=>(
@@ -302,9 +340,17 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                       <input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
                         checked={bulk.isChecked(e.id)} onChange={()=>bulk.toggle(e.id)}/>
                     </td>
+                    {/* Aksi di kiri — mudah dijangkau */}
+                    <td>
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={()=>openEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 transition-colors" title="Edit"><Pencil size={12}/></button>
+                        <button onClick={()=>deleteEmployee(e.id,e.full_name)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors" title="Hapus"><Trash2 size={12}/></button>
+                      </div>
+                    </td>
                     <td><div className="flex items-center gap-2"><Avatar name={e.full_name} size="sm"/><div><div className="font-bold text-[12px]">{e.full_name}</div><div className="text-[10px] text-slate-300">{e.employee_id}</div></div></div></td>
-                    <td className="text-[11px] text-slate-600">{e.position}</td>
                     <td className="text-[11px]">{e.division}</td>
+                    <td className="text-[11px] text-slate-400">{e.employee_id}</td>
+                    <td className="text-[11px] text-slate-600">{e.position}</td>
                     <td><Badge variant="navy">{e.entity}</Badge></td>
                     <td><Badge variant={e.employment_type==='PKWTT'?'teal':'blue'}>{e.employment_type}</Badge></td>
                     <td><StatusBadge status={e.status}/></td>
@@ -341,10 +387,6 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                         return <div className="text-slate-400">{fmt}</div>
                       })() : <span className="text-slate-300">–</span>}
                     </td>
-                    <td><div className="flex items-center justify-center gap-1">
-                      <button onClick={()=>openEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 transition-colors"><Pencil size={12}/></button>
-                      <button onClick={()=>deleteEmployee(e.id,e.full_name)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors"><Trash2 size={12}/></button>
-                    </div></td>
                   </tr>
                 ))}
                 {filtered.length===0&&<EmptyState message="Tidak ada data yang sesuai filter"/>}
