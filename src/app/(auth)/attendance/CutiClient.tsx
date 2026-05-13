@@ -137,29 +137,29 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   // Auto-calculate saldo tanpa perlu init manual
   function calcAnnualEntitled(joinDate: string, year: number): number {
     if (!joinDate) return 12
-    const join      = new Date(joinDate + 'T00:00:00')
-    const joinYear  = join.getFullYear()
-    const joinMonth = join.getMonth() // 0-based
-    const joinQ     = Math.floor(joinMonth / 3) + 1 // Q1=1..Q4=4
+    const join     = new Date(joinDate + 'T00:00:00')
+    const joinYear = join.getFullYear()
+    const joinMonth= join.getMonth() // 0-based
+    const today    = new Date()
 
     // Belum join tahun ini
     if (joinYear > year) return 0
 
-    // Tahun join → prorata: 1 hari per bulan aktif (dari bulan join sampai Desember)
+    // Tahun join → prorata: bulan aktif dari bulan join sampai Desember
     if (joinYear === year) return 12 - joinMonth
 
-    const yearsAfter = year - joinYear
+    // 2+ tahun setelah join → anniversary pasti sudah lewat → 12
+    if (year - joinYear >= 2) return 12
 
-    if (yearsAfter === 1) {
-      // Join Q1 → langsung full 12 di tahun berikutnya
-      if (joinQ === 1) return 12
-      // Join Q2/Q3/Q4 → masih prorata di tahun+1: sisa bulan menuju 1 tahun penuh
-      // Contoh: join April(3) → dapat 9 bln di 2025, sisa 3 bln (Jan-Mar) di 2026
-      return joinMonth // April=3, Nov=10, dst
-    }
+    // Tahun+1: cek apakah anniversary sudah lewat hari ini
+    const anniversary = new Date(join)
+    anniversary.setFullYear(joinYear + 1)
 
-    // 2+ tahun setelah join → full 12
-    return 12
+    if (anniversary <= today) return 12
+
+    // Anniversary belum lewat → prorata sisa bulan menuju anniversary
+    // Contoh: anniversary November 2026 → Jan-Nov = 11 bulan = 11 hari
+    return anniversary.getMonth() + 1
   }
   function getSaldo(empId:string, year:number=2026) {
     const emp = employees.find(e=>e.id===empId)
