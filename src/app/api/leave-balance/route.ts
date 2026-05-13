@@ -29,6 +29,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
+  // Auto-set ot_granted_at saat OT di-input/update
+  if (body.overtime_entitled !== undefined && body.overtime_entitled > 0) {
+    body.ot_granted_at = new Date().toISOString()
+  }
   const { data, error } = await db.from('leave_balance')
     .upsert(body, { onConflict: 'employee_id,year' })
     .select('*, employee:employees(full_name,division,join_date,employment_type)')
@@ -41,6 +45,10 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, ...body } = await req.json()
+  // Auto-set ot_granted_at saat OT di-update
+  if (body.overtime_entitled !== undefined && body.overtime_entitled > 0) {
+    body.ot_granted_at = new Date().toISOString()
+  }
   const { data, error } = await db.from('leave_balance').update(body).eq('id', id)
     .select('*, employee:employees(full_name,division,join_date,employment_type)')
     .maybeSingle()

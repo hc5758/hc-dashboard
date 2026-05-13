@@ -157,10 +157,21 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     // Cuti khusus (tidak ngurangi tahunan)
     const sickUsed    = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Sakit'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
     const specialUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Penting'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
-    const otEntitled  = bal?.overtime_entitled ?? 0
     const otUsed      = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Overtime'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
 
-    return { annualEntitled, carryOver, annualTotal, annualUsed, annualLeft, sickUsed, specialUsed, otEntitled, otUsed, otLeft: otEntitled-otUsed }
+    // OT hangus 30 hari setelah ot_granted_at
+    const otGrantedAt = bal?.ot_granted_at
+    const otExpired   = otGrantedAt
+      ? (Date.now() - new Date(otGrantedAt).getTime()) > 30 * 24 * 60 * 60 * 1000
+      : false
+    const otEntitledActive = otExpired ? 0 : (bal?.overtime_entitled ?? 0)
+    const otExpiryDate = otGrantedAt
+      ? new Date(new Date(otGrantedAt).getTime() + 30 * 24 * 60 * 60 * 1000)
+      : null
+
+    return { annualEntitled, carryOver, annualTotal, annualUsed, annualLeft, sickUsed, specialUsed,
+      otEntitled: otEntitledActive, otUsed, otLeft: otEntitledActive - otUsed,
+      otExpired, otExpiryDate, otGrantedAt }
   }
 
   // ── Calendar ─────────────────────────────────────────────
@@ -785,6 +796,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                     <th colSpan={4} className="text-center bg-teal-50 border-b-0">Cuti Tahunan</th>
                     <th colSpan={2} className="text-center bg-blue-50 border-b-0">Cuti Khusus</th>
                     <th colSpan={3} className="text-center bg-green-50 border-b-0">Overtime</th>
+                    <th rowSpan={2} className="text-center bg-amber-50 text-[9px]">Catatan OT</th>
                   </tr>
                   <tr>
                     <th className="text-center bg-teal-50 text-[9px]">Hak</th>
@@ -818,10 +830,32 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                         </td>
                         <td className="text-center text-slate-500">{s.sickUsed}</td>
                         <td className="text-center text-slate-500">{s.specialUsed}</td>
-                        <td className="text-center text-slate-600">{s.otEntitled}</td>
+                        <td className="text-center">
+                          {s.otExpired
+                            ? <span className="text-[11px] text-slate-300 italic">Hangus</span>
+                            : <div>
+                                <div className="text-slate-600">{s.otEntitled}</div>
+                                {s.otExpiryDate && s.otEntitled > 0 && (
+                                  <div className="text-[9.5px] text-amber-500">
+                                    Hangus {s.otExpiryDate.getDate()}/{s.otExpiryDate.getMonth()+1}
+                                  </div>
+                                )}
+                              </div>
+                          }
+                        </td>
                         <td className="text-center text-slate-500">{s.otUsed}</td>
                         <td className="text-center">
                           <span className={cn('text-[13px] font-bold',s.otLeft>0?'text-green-600':'text-slate-300')}>{s.otLeft}</span>
+                        </td>
+                        <td className="text-[10.5px] max-w-[120px]">
+                          {s.otGrantedAt && (bal?.overtime_entitled ?? 0) > 0 ? (
+                            s.otExpired
+                              ? <span className="text-slate-400 italic">OT hangus {s.otExpiryDate ? `${s.otExpiryDate.getDate()}/${s.otExpiryDate.getMonth()+1}/${s.otExpiryDate.getFullYear()}` : ''}</span>
+                              : <span className="text-amber-600">Berlaku s/d {s.otExpiryDate ? `${s.otExpiryDate.getDate()}/${s.otExpiryDate.getMonth()+1}/${s.otExpiryDate.getFullYear()}` : ''}</span>
+                          ) : (
+                            <span className="text-slate-300">–</span>
+                          )}
+                          {bal?.notes ? <div className="text-slate-400 mt-0.5">{bal.notes}</div> : null}
                         </td>
                         <td className="text-center">
                           <button onClick={()=>{
