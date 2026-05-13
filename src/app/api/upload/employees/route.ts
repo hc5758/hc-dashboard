@@ -79,7 +79,21 @@ export async function POST(req: NextRequest) {
       .select()
       .maybeSingle()
 
-    if (error) errors.push(`${empId} (${rawName}): ${error.message}`)
+    if (error) {
+      // Kalau upsert gagal karena conflict, coba update saja
+      if (error.code === '23505' || error.message.includes('duplicate')) {
+        const { data: updated, error: updErr } = await db
+          .from('employees')
+          .update(payload)
+          .eq('employee_id', empId)
+          .select()
+          .maybeSingle()
+        if (updErr) errors.push(`${empId} (${rawName}): ${updErr.message}`)
+        else if (updated) results.push(updated)
+      } else {
+        errors.push(`${empId} (${rawName}): ${error.message}`)
+      }
+    }
     else if (data) results.push(data)
   }
 

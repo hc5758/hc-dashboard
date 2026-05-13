@@ -179,7 +179,8 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
         flash(`✓ ${data.count} karyawan berhasil diimport!`)
       }
 
-      const fresh=await fetch('/api/employees').then(r=>r.json())
+      // Fetch fresh — API GET sudah decrypt nama otomatis
+      const fresh=await fetch('/api/employees', { cache: 'no-store' }).then(r=>r.json())
       if(fresh.data)setEmployees(fresh.data)
     }catch(err:any){flash(`✗ Error: ${err.message}`)}
     finally{setImporting(false);if(fileRef.current)fileRef.current.value=''}
