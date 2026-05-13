@@ -131,13 +131,14 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
     const file=e.target.files?.[0];if(!file)return
     flash('Membaca file...')
     try{
-      const buf=await file.arrayBuffer();const wb=XLSX.read(buf)
-      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      const buf=await file.arrayBuffer();const wb=XLSX.read(buf, { cellDates: true })
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
       let count=0
       for(const row of rows){
         if(!row['Position'])continue
         const hp=row['Hiring Process']||'Open'
-        const payload={position:row['Position'],division:row['Division']||'Creative',entity:row['Entity']||'SSR',pic_name:row['Closing Name (PIC HC)']||'',hiring_source:row['Source']||'Job Portal',request_date:row['Request Date']||null,ol_signed_date:row['OL Signed Date']||null,target_date:row['Join Date']||null,join_date:row['Join Date']||null,hiring_process:hp,on_progress_hiring:row['On Progress Hiring']||'',remarks:row['Remarks']||'',notes:row['Notes']||'',budget_allocation:parseFloat(row['Budget Allocation'])||0,status:hp==='Joined'?'Hired':hp==='OL Signed'?'Offering':'In Progress',quarter:'Q2',year:2026}
+        const parseD=(v:any)=>{ if(!v)return null; const s=String(v).trim(); if(s.includes('T'))return s.slice(0,10); if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s; return null }
+        const payload={position:row['Position'],division:row['Division']||'Creative',entity:row['Entity']||'SSR',pic_name:row['Closing Name (PIC HC)']||'',hiring_source:row['Source']||'Job Portal',request_date:parseD(row['Request Date']),ol_signed_date:parseD(row['OL Signed Date']),target_date:parseD(row['Join Date']),join_date:parseD(row['Join Date']),hiring_process:hp,on_progress_hiring:row['On Progress Hiring']||'',remarks:row['Remarks']||'',notes:row['Notes']||'',budget_allocation:parseFloat(row['Budget Allocation'])||0,status:hp==='Joined'?'Hired':hp==='OL Signed'?'Offering':'In Progress',quarter:'Q2',year:2026}
         const res=await fetch('/api/recruitment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
         const data=await res.json()
         if(res.ok&&data.data){setRec(prev=>[{...data.data,...payload,id:data.data.id},...prev]);count++}

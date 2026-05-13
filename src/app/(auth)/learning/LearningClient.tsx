@@ -78,14 +78,15 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
     const file=e.target.files?.[0];if(!file)return
     flash('Membaca file...')
     try{
-      const buf=await file.arrayBuffer();const wb=XLSX.read(buf)
-      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      const buf=await file.arrayBuffer();const wb=XLSX.read(buf, { cellDates: true })
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
       let count=0
       for(const row of rows){
         const empName=row['Nama']||''
         const emp=employees.find(e=>e.full_name.toLowerCase()===empName.toLowerCase())
         if(!emp||!row['Training'])continue
-        const payload={employee_id:emp.id,training_name:row['Training'],training_category:row['Kategori']||'Hard Skill',training_method:row['Metode']||'Online',quarter:row['Quarter']||'Q2',year:parseInt(row['Tahun'])||2026,target_date:row['Target Date']||'',status:row['Status']||'Planned',score:row['Score']?parseInt(row['Score']):null,vendor:row['Vendor']||'',duration_hours:row['Durasi (jam)']?parseInt(row['Durasi (jam)']):null,notes:row['Catatan']||''}
+        const parseD=(v:any)=>{ if(!v)return null; const s=String(v).trim(); if(s.includes('T'))return s.slice(0,10); if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s; return null }
+        const payload={employee_id:emp.id,training_name:row['Training'],training_category:row['Kategori']||'Hard Skill',training_method:row['Metode']||'Online',quarter:row['Quarter']||'Q2',year:parseInt(row['Tahun'])||2026,target_date:parseD(row['Target Date']),status:row['Status']||'Planned',score:row['Score']?parseInt(row['Score']):null,vendor:row['Vendor']||'',duration_hours:row['Durasi (jam)']?parseInt(row['Durasi (jam)']):null,notes:row['Catatan']||''}
         const res=await fetch('/api/tna',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
         const data=await res.json()
         if(res.ok&&data.data){setTna(prev=>[{...data.data,employee:emp},...prev]);count++}

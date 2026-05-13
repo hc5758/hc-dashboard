@@ -149,8 +149,8 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
     const file=e.target.files?.[0];if(!file)return
     setImporting(true);flash('Membaca file...')
     try{
-      const buf=await file.arrayBuffer();const wb=XLSX.read(buf)
-      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      const buf=await file.arrayBuffer();const wb=XLSX.read(buf, { cellDates: true })
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
       flash(`${rows.length} baris ditemukan. Mengupload...`)
       const res=await fetch('/api/upload/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})})
       const data=await res.json()

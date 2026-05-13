@@ -66,8 +66,8 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
     const file=e.target.files?.[0]; if(!file)return
     flash('Membaca file...')
     try{
-      const buf=await file.arrayBuffer(); const wb=XLSX.read(buf)
-      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+      const buf=await file.arrayBuffer(); const wb=XLSX.read(buf, { cellDates: true })
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
       let count=0
       for(const row of rows){
         const empName=row['Nama']||''
@@ -81,7 +81,8 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
         const bruto=basic+allowance+ot+bonus
         const pph=calcPPh21(bruto,bpjsTK,bpjsKes)
         const mIdx=MONTHS_ID.indexOf(row['Bulan']||'')
-        const payload={employee_id:emp.id,year:parseInt(row['Tahun'])||filterYear,month:mIdx>0?mIdx:filterMonth,basic_salary:basic,allowance,overtime:ot,bonus,bpjs_ketenagakerjaan:parseInt(row['BPJS TK'])||bpjsTK,bpjs_kesehatan:parseInt(row['BPJS Kes'])||bpjsKes,pph21:parseInt(row['PPh21'])||pph,net_salary:parseInt(row['Net Salary'])||bruto-bpjsTK-bpjsKes-pph,payment_date:row['Tgl Bayar']||null}
+        const parseD=(v:any)=>{ if(!v)return null; const s=String(v).trim(); if(s.includes('T'))return s.slice(0,10); if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s; return null }
+        const payload={employee_id:emp.id,year:parseInt(row['Tahun'])||filterYear,month:mIdx>0?mIdx:filterMonth,basic_salary:basic,allowance,overtime:ot,bonus,bpjs_ketenagakerjaan:parseInt(row['BPJS TK'])||bpjsTK,bpjs_kesehatan:parseInt(row['BPJS Kes'])||bpjsKes,pph21:parseInt(row['PPh21'])||pph,net_salary:parseInt(row['Net Salary'])||bruto-bpjsTK-bpjsKes-pph,payment_date:parseD(row['Tgl Bayar'])}
         const res=await fetch('/api/salary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
         const data=await res.json()
         if(res.ok&&data.data){setSalary(prev=>[{...data.data,employee:emp},...prev]);count++}
