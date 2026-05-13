@@ -415,10 +415,45 @@ export default function PayrollClient({ salary: initSal, employees }: { salary: 
         </Modal>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Payroll growth in line dengan HC growth" text="Cost per head turun — hiring lebih banyak di level junior. Positif untuk efisiensi."/>
-        <InsightCard title="Operations: cost per head tertinggi" text="4 karyawan senior di Operations punya cost per head tertinggi. Evaluasi ROI vs output aktual." color="bg-[#1a2d5a]" titleColor="text-teal-200"/>
-      </div>
+      {(()=>{
+        if(filtered.length===0) return null
+
+        // Cost per head per divisi
+        const divCost: Record<string,{total:number,count:number}> = {}
+        filtered.forEach(s=>{
+          const d = s.employee?.division||'Unknown'
+          const net = typeof s.net_salary==='number'?s.net_salary:0
+          if(!divCost[d]) divCost[d]={total:0,count:0}
+          divCost[d].total+=net; divCost[d].count+=1
+        })
+        const divCPH = Object.entries(divCost).map(([d,v])=>({div:d,cph:v.count>0?v.total/v.count:0,count:v.count}))
+        const topCPH = divCPH.sort((a,b)=>b.cph-a.cph)[0]
+        const botCPH = divCPH[divCPH.length-1]
+
+        // Total bulan ini vs bulan lalu (dari semua salary)
+        const totalNet = filtered.reduce((s,r)=>s+(typeof r.net_salary==='number'?r.net_salary:0),0)
+        const avgNet = filtered.length>0?totalNet/filtered.length:0
+        const fmtJt = (n:number)=>n>=1000000?`Rp ${(n/1000000).toFixed(1)} Jt`:`Rp ${Math.round(n/1000)} Rb`
+
+        const ins1 = topCPH?{
+          title: `${topCPH.div}: cost per head tertinggi`,
+          text: `Rata-rata ${fmtJt(topCPH.cph)}/orang dari ${topCPH.count} karyawan. ${botCPH&&botCPH.div!==topCPH.div?`${botCPH.div} paling rendah (${fmtJt(botCPH.cph)}/orang).`:'Evaluasi apakah output sebanding dengan cost.'}`,
+          color:'bg-[#1a2d5a]', titleColor:'text-teal-200'
+        }:null
+
+        const ins2 = {
+          title: `Avg salary bulan ini: ${fmtJt(avgNet)}/orang`,
+          text: `Total ${filtered.length} karyawan diproses. ${filtered.filter(s=>typeof s.net_salary==='number'&&s.net_salary>0).length} sudah ada take home.`,
+          color:'bg-[#0f1e3d]', titleColor:'text-teal-300'
+        }
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            {ins1&&<InsightCard title={ins1.title} text={ins1.text} color={ins1.color} titleColor={ins1.titleColor}/>}
+            <InsightCard title={ins2.title} text={ins2.text} color={ins2.color} titleColor={ins2.titleColor}/>
+          </div>
+        )
+      })()}
     </div>
   )
 }

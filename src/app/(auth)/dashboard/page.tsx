@@ -291,21 +291,63 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          {/* Insights */}
-          <div className={`flex flex-col gap-3 ${(pip??[]).length>0?'':'col-span-3 grid grid-cols-3'}`}>
-            <div className="rounded-xl bg-[#0f1e3d] p-5">
-              <div className="text-teal-300 text-[12px] font-semibold mb-2">📈 Headcount Growth</div>
-              <div className="text-white/60 text-[11.5px] leading-relaxed">Momentum +7.9% MoM driven oleh hiring Creative & Social Media. Target Q2 adalah 45 headcount.</div>
-            </div>
-            <div className="rounded-xl bg-amber-700/80 p-5">
-              <div className="text-amber-200 text-[12px] font-semibold mb-2">📚 {tnaOverdue.length} TNA Overdue</div>
-              <div className="text-white/60 text-[11.5px] leading-relaxed">Perlu koordinasi dengan manager untuk akselerasi penyelesaian training yang melewati deadline.</div>
-            </div>
-            <div className="rounded-xl bg-red-900/70 p-5">
-              <div className="text-red-300 text-[12px] font-semibold mb-2">🚨 Social Media: Triple Concern</div>
-              <div className="text-white/60 text-[11.5px] leading-relaxed">Turnover 14.3%, engagement terendah (2.9/5), absensi tertinggi (8.2%). Perlu intervensi.</div>
-            </div>
-          </div>
+          {/* Dynamic Insights */}
+          {(()=>{
+            const insights: {icon:string,title:string,text:string,color:string,titleColor:string}[] = []
+
+            // Headcount trend
+            const activeCount = active.length
+            if(activeCount>0) insights.push({
+              icon:'📈',
+              title:`${activeCount} karyawan aktif`,
+              text:`Total headcount saat ini. ${expiringContracts.length>0?`${expiringContracts.length} kontrak habis dalam 60 hari — perlu keputusan segera.`:'Semua kontrak dalam kondisi aman.'}`,
+              color:'bg-[#0f1e3d]', titleColor:'text-teal-300'
+            })
+
+            // TNA overdue
+            if(tnaOverdue.length>0) insights.push({
+              icon:'📚',
+              title:`${tnaOverdue.length} TNA Overdue`,
+              text:`${tnaOverdue.slice(0,2).map((t:any)=>t.employee?.full_name?.split(' ')[0]).join(' & ')}${tnaOverdue.length>2?` +${tnaOverdue.length-2} lainnya`:''} belum menyelesaikan training melewati deadline.`,
+              color:'bg-amber-700/80', titleColor:'text-amber-200'
+            })
+
+            // Birthday today
+            if(birthdayToday.length>0) insights.push({
+              icon:'🎂',
+              title:`${birthdayToday.length} karyawan ulang tahun hari ini`,
+              text:`${birthdayToday.map(e=>e.full_name?.split(' ')[0]).join(', ')} — jangan lupa ucapkan selamat!`,
+              color:'bg-teal-700/80', titleColor:'text-teal-100'
+            })
+
+            // On leave today
+            if(onLeaveToday.length>0) insights.push({
+              icon:'📅',
+              title:`${onLeaveToday.length} karyawan cuti hari ini`,
+              text:`${onLeaveToday.slice(0,2).map((l:any)=>l.employee?.full_name?.split(' ')[0]).join(' & ')}${onLeaveToday.length>2?` +${onLeaveToday.length-2} lainnya`:''} tidak hadir hari ini.`,
+              color:'bg-blue-900/70', titleColor:'text-blue-200'
+            })
+
+            // PIP active
+            if((pip??[]).length>0) insights.push({
+              icon:'⚠️',
+              title:`${(pip??[]).length} karyawan dalam monitoring PIP/SP`,
+              text:`Pastikan check-in rutin dan dokumentasi progress improvement plan sesuai jadwal yang ditetapkan.`,
+              color:'bg-red-900/70', titleColor:'text-red-300'
+            })
+
+            const shown = insights.slice(0, 3)
+            return(
+              <div className={`flex flex-col gap-3 ${(pip??[]).length>0?'':'col-span-3 grid grid-cols-3'}`}>
+                {shown.map((ins,i)=>(
+                  <div key={i} className={`rounded-xl ${ins.color} p-5`}>
+                    <div className={`${ins.titleColor} text-[12px] font-semibold mb-2`}>{ins.icon} {ins.title}</div>
+                    <div className="text-white/60 text-[11.5px] leading-relaxed">{ins.text}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
       </div>

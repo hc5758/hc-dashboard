@@ -250,10 +250,62 @@ export default function TurnoverClient({ offboarding: initOff, employees, active
         </Modal>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Early attrition 60% — alarm merah" text="3 dari 5 yang keluar punya tenure di bawah 6 bulan. Rekomendasi: 30-60-90 day formal check-in untuk semua karyawan baru." color="bg-red-900/80" titleColor="text-red-300"/>
-        <InsightCard title="Social Media: turnover tertinggi" text="Berkorelasi dengan engagement 2.9/5 dan absenteeism 8.2%. Triple concern — perlu intervensi menyeluruh." color="bg-purple-900/70" titleColor="text-purple-300"/>
-      </div>
+      {(()=>{
+        const total = offFiltered.length
+        if(total===0) return(
+          <div className="grid grid-cols-2 gap-3">
+            <InsightCard title="Tidak ada turnover di periode ini" text="Tidak ada data karyawan keluar. Retention rate terjaga dengan baik." color="bg-teal-800/60" titleColor="text-teal-200"/>
+          </div>
+        )
+
+        // Early attrition: tenure < 6 bulan
+        const earlyOut = offFiltered.filter(o=>{ if(!o.employee?.join_date||!o.effective_date) return false; const months=(new Date(o.effective_date).getTime()-new Date(o.employee.join_date).getTime())/(1000*60*60*24*30); return months<6 })
+        const earlyPct = total>0?Math.round(earlyOut.length/total*100):0
+
+        // Divisi turnover terbanyak
+        const byDiv: Record<string,number> = {}
+        offFiltered.forEach(o=>{ const d=o.employee?.division||'Unknown'; byDiv[d]=(byDiv[d]||0)+1 })
+        const topDiv = Object.entries(byDiv).sort((a,b)=>b[1]-a[1])[0]
+
+        // Resign vs end of contract
+        const resignCount = offFiltered.filter(o=>o.offboard_type==='Resign').length
+        const eocCount    = offFiltered.filter(o=>o.offboard_type==='End of Contract').length
+
+        const insights = []
+
+        if(earlyPct>=50) insights.push({
+          title: `Early attrition ${earlyPct}% — perlu perhatian`,
+          text: `${earlyOut.length} dari ${total} yang keluar punya tenure di bawah 6 bulan. Pertimbangkan structured onboarding dan 30-60-90 day check-in.`,
+          color: 'bg-red-900/80', titleColor: 'text-red-300'
+        })
+        else if(earlyPct>0) insights.push({
+          title: `Early attrition ${earlyPct}%`,
+          text: `${earlyOut.length} dari ${total} yang keluar punya tenure di bawah 6 bulan. Masih dalam batas wajar.`,
+          color: 'bg-amber-900/60', titleColor: 'text-amber-300'
+        })
+        else insights.push({
+          title: 'Tidak ada early attrition',
+          text: `Semua yang keluar sudah memiliki tenure lebih dari 6 bulan. Tanda onboarding dan adaptasi berjalan baik.`,
+          color: 'bg-teal-800/60', titleColor: 'text-teal-200'
+        })
+
+        if(topDiv) insights.push({
+          title: `${topDiv[0]}: turnover terbanyak (${topDiv[1]} orang)`,
+          text: resignCount>eocCount
+            ? `${resignCount} resign dari total ${total} keluar. Pertimbangkan exit interview untuk mencari pola.`
+            : `${eocCount} end of contract dari total ${total} keluar. Evaluasi perpanjangan kontrak untuk posisi strategis.`,
+          color: topDiv[1]>=2?'bg-purple-900/70':'bg-[#1a2d5a]',
+          titleColor: topDiv[1]>=2?'text-purple-300':'text-teal-200'
+        })
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            {insights.map((ins,i)=>(
+              <div key={i}><InsightCard title={String(ins.title)} text={String(ins.text)} color={ins.color as string} titleColor={ins.titleColor as string}/></div>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }

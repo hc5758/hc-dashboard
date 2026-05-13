@@ -227,10 +227,49 @@ export default function LearningClient({ tna: init, employees }: { tna: any[]; e
         </Modal>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Completion rate 61% — di bawah target 80%" text="Perlu akselerasi eksekusi training di Q2–Q3. Klik nama karyawan untuk update progress detail."/>
-        <InsightCard title="Klik nama untuk lihat & edit training" text="Setiap karyawan punya halaman training tersendiri — lengkap dengan link file, progress, score, dan riwayat training." color="bg-[#1a2d5a]" titleColor="text-teal-200"/>
-      </div>
+      {(()=>{
+        if(tna.length===0) return(
+          <div className="grid grid-cols-2 gap-3">
+            <InsightCard title="Belum ada data training" text="Tambah training via Quick add atau Import Excel untuk melihat insight." color="bg-[#1a2d5a]" titleColor="text-teal-200"/>
+          </div>
+        )
+        const done     = tna.filter(t=>t.status==='Done').length
+        const overdue  = tna.filter(t=>t.status==='Overdue').length
+        const inprog   = tna.filter(t=>t.status==='In Progress').length
+        const compRate = Math.round(done/tna.length*100)
+        const scores   = tna.filter(t=>t.score!=null).map(t=>t.score as number)
+        const avgScore = scores.length>0?(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(0):null
+
+        const ins1 = overdue>0?{
+          title:`${overdue} training overdue — perlu follow-up`,
+          text:`${overdue} dari ${tna.length} training sudah melewati deadline. Koordinasikan dengan manager masing-masing untuk akselerasi penyelesaian.`,
+          color:'bg-red-900/70', titleColor:'text-red-300'
+        }:{
+          title:`Completion rate ${compRate}%`,
+          text: compRate>=80
+            ? `Target 80% tercapai! ${done} dari ${tna.length} training selesai. ${inprog>0?`${inprog} masih berlangsung.`:''}`
+            : `${done} dari ${tna.length} training selesai. Perlu akselerasi di Q2–Q3 untuk capai target 80%.`,
+          color: compRate>=80?'bg-teal-700':'bg-amber-900/60',
+          titleColor: compRate>=80?'text-teal-100':'text-amber-300'
+        }
+
+        const ins2 = avgScore?{
+          title:`Avg score training: ${avgScore}/100`,
+          text:`Dari ${scores.length} training yang sudah dinilai. Klik nama karyawan untuk lihat detail progress, link file, dan riwayat training.`,
+          color:'bg-[#1a2d5a]', titleColor:'text-teal-200'
+        }:{
+          title:'Klik nama karyawan untuk detail',
+          text:'Setiap karyawan punya halaman training tersendiri — lengkap dengan progress, score, dan riwayat.',
+          color:'bg-[#1a2d5a]', titleColor:'text-teal-200'
+        }
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            <InsightCard title={ins1.title} text={ins1.text} color={ins1.color} titleColor={ins1.titleColor}/>
+            <InsightCard title={ins2.title} text={ins2.text} color={ins2.color} titleColor={ins2.titleColor}/>
+          </div>
+        )
+      })()}
     </div>
   )
 }

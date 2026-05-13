@@ -232,11 +232,46 @@ export default function EngagementClient({ surveys: initS, surveys2025, offboard
         </div>
       </div>
 
-      {/* Insights */}
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Engagement 0–6 bulan hanya 3.1 — early attrition risk" text="Karyawan baru paling rentan keluar di 6 bulan pertama. Rekomendasi: buddy system, formal check-in mingguan, onboarding lebih structured." color="bg-red-900/70" titleColor="text-red-200"/>
-        <InsightCard title="Finance: engagement tertinggi — zero turnover" text="Finance paling engaged, zero turnover. Capture apa yang dilakukan manager Finance dan jadikan framework untuk divisi lain." color="bg-teal-700" titleColor="text-teal-100"/>
-      </div>
+      {/* Dynamic Insights */}
+      {(()=>{
+        if(dispSrc.length===0) return(
+          <div className="grid grid-cols-2 gap-3">
+            <InsightCard title="Belum ada data engagement" text="Input data survey engagement untuk melihat insight dan korelasi dengan turnover." color="bg-[#1a2d5a]" titleColor="text-teal-200"/>
+          </div>
+        )
+        // Divisi tertinggi dan terendah
+        const sorted = [...dispSrc].filter(s=>s.engagement_score).sort((a,b)=>(b.engagement_score??0)-(a.engagement_score??0))
+        const topDiv = sorted[0]
+        const botDiv = sorted[sorted.length-1]
+        const avg = sorted.length>0?(sorted.reduce((s,d)=>s+(d.engagement_score??0),0)/sorted.length).toFixed(1):'0'
+
+        const insights = []
+
+        if(topDiv) insights.push({
+          title: `${topDiv.division}: engagement tertinggi (${topDiv.engagement_score}/5)`,
+          text: topDiv.engagement_score>=4
+            ? `${topDiv.division} punya engagement terbaik. Pelajari apa yang dilakukan manager dan jadikan referensi untuk divisi lain.`
+            : `${topDiv.division} memimpin dengan ${topDiv.engagement_score}/5. Rata-rata keseluruhan ${avg}/5.`,
+          color: 'bg-teal-700', titleColor: 'text-teal-100'
+        })
+
+        if(botDiv && botDiv.division!==topDiv?.division) insights.push({
+          title: `${botDiv.division}: engagement terendah (${botDiv.engagement_score}/5)`,
+          text: (botDiv.engagement_score??5)<3
+            ? `Score di bawah 3 — cukup mengkhawatirkan. Pertimbangkan 1-on-1 session dan review beban kerja di ${botDiv.division}.`
+            : `${botDiv.division} sedikit di bawah rata-rata (${avg}). Perlu perhatian lebih agar tidak turun lebih jauh.`,
+          color: (botDiv.engagement_score??5)<3?'bg-red-900/70':'bg-amber-900/60',
+          titleColor: (botDiv.engagement_score??5)<3?'text-red-200':'text-amber-300'
+        })
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            {insights.map((ins,i)=>(
+              <div key={i}><InsightCard title={String(ins.title)} text={String(ins.text)} color={ins.color as string} titleColor={ins.titleColor as string}/></div>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Modal */}
       {showModal&&(

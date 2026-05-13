@@ -298,10 +298,62 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Creative division terbesar" text="Divisi dengan headcount terbanyak. Perlu monitoring beban kerja dan retention strategy khusus."/>
-        <InsightCard title="Gender split 59% Perempuan" text="Distribusi gender cukup seimbang. Perempuan mayoritas di Creative dan Social Media." color="bg-[#1a2d5a]" titleColor="text-teal-200"/>
-      </div>
+      {/* Dynamic insights */}
+      {(()=>{
+        const active = employees.filter(e=>e.status==='active')
+        // Divisi terbesar
+        const byDiv: Record<string,number> = {}
+        active.forEach(e=>{ byDiv[e.division]=(byDiv[e.division]||0)+1 })
+        const topDiv = Object.entries(byDiv).sort((a,b)=>b[1]-a[1])[0]
+        // Gender split
+        const female = active.filter(e=>e.gender==='Perempuan').length
+        const femalePct = active.length>0?Math.round(female/active.length*100):0
+        const majorGender = femalePct>=50?`${femalePct}% Perempuan`:`${100-femalePct}% Laki-laki`
+        // Kontrak mau habis
+        const expiring = active.filter(e=>{ if(!e.end_date) return false; const d=Math.round((new Date(e.end_date).getTime()-Date.now())/86400000); return d>=0&&d<=60 })
+        // PKWT ratio
+        const pkwt = active.filter(e=>e.employment_type==='PKWT').length
+        const pkwtPct = active.length>0?Math.round(pkwt/active.length*100):0
+
+        const insights = []
+
+        if(topDiv) insights.push({
+          title: `${topDiv[0]}: divisi terbesar (${topDiv[1]} orang)`,
+          text: `${Math.round(topDiv[1]/active.length*100)}% dari total headcount ada di ${topDiv[0]}. Perlu monitoring beban kerja dan distribusi tugas secara berkala.`,
+          color: 'bg-[#0f1e3d]', titleColor: 'text-teal-300'
+        })
+
+        if(expiring.length>0) insights.push({
+          title: `${expiring.length} kontrak habis dalam 60 hari`,
+          text: `${expiring.map(e=>e.full_name?.split(' ')[0]).join(', ')} perlu keputusan perpanjangan segera sebelum jatuh tempo.`,
+          color: 'bg-red-900/70', titleColor: 'text-red-300'
+        })
+        else insights.push({
+          title: 'Semua kontrak aman',
+          text: `Tidak ada kontrak yang habis dalam 60 hari ke depan. Total ${active.length} karyawan aktif.`,
+          color: 'bg-teal-800/60', titleColor: 'text-teal-200'
+        })
+
+        if(pkwtPct>40) insights.push({
+          title: `${pkwtPct}% karyawan berstatus PKWT`,
+          text: `Rasio kontrak cukup tinggi. Pertimbangkan konversi ke PKWTT untuk posisi-posisi yang bersifat permanen.`,
+          color: 'bg-amber-900/60', titleColor: 'text-amber-300'
+        })
+
+        insights.push({
+          title: `Gender split: ${majorGender}`,
+          text: `Dari ${active.length} karyawan aktif, ${female} perempuan dan ${active.length-female} laki-laki.`,
+          color: 'bg-[#1a2d5a]', titleColor: 'text-teal-200'
+        })
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            {insights.slice(0,2).map((ins,i)=>(
+              <div key={i}><InsightCard title={String(ins.title)} text={String(ins.text)} color={ins.color as string} titleColor={ins.titleColor as string}/></div>
+            ))}
+          </div>
+        )
+      })()}
 
       {showModal&&(
         <Modal title={editId?'Edit data karyawan':'Tambah karyawan baru'} onClose={()=>setShowModal(false)} size="lg">

@@ -239,10 +239,39 @@ export default function PerformanceClient({ pip: initPip, employees, tna, scores
         </Modal>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <InsightCard title="Finance: top performer" text="Finance konsisten tertinggi di semua tahun. Extract best practice dan replikasikan ke divisi lain." color="bg-teal-700" titleColor="text-teal-100"/>
-        <InsightCard title="Social Media: performa terendah" text="Triple concern: performa rendah + absensi tinggi + turnover tinggi. Intervensi menyeluruh diperlukan." color="bg-red-900/70" titleColor="text-red-200"/>
-      </div>
+      {(()=>{
+        if(teams.length===0) return null
+        const top    = teams[0]
+        const bottom = teams[teams.length-1]
+        const activePip = pip.filter(p=>p.status==='Active')
+        const avgAll = teams.length>0?(teams.reduce((s,t)=>s+t.score,0)/teams.length).toFixed(1):'0'
+
+        const ins1 = {
+          title: `${top.div}: top performer ${top.score}/5`,
+          text: `${top.div} punya rata-rata score tertinggi di ${year}. Extract best practice dan replikasikan ke divisi lain.`,
+          color: 'bg-teal-700', titleColor: 'text-teal-100'
+        }
+
+        const ins2 = bottom.score < 3.5 ? {
+          title: `${bottom.div}: performa terendah ${bottom.score}/5`,
+          text: activePip.filter(p=>p.employee?.division===bottom.div).length>0
+            ? `${bottom.div} punya ${activePip.filter(p=>p.employee?.division===bottom.div).length} PIP aktif dan score di bawah rata-rata (${avgAll}). Perlu intervensi segera.`
+            : `Score ${bottom.div} di bawah rata-rata tim (${avgAll}). Pertimbangkan coaching dan review target per individu.`,
+          color: bottom.score<3?'bg-red-900/70':'bg-amber-900/60',
+          titleColor: bottom.score<3?'text-red-200':'text-amber-200'
+        } : {
+          title: `Rata-rata score tim: ${avgAll}/5`,
+          text: `Semua divisi di atas 3.5. ${top.div} tertinggi (${top.score}) dan ${bottom.div} perlu sedikit dorongan (${bottom.score}).`,
+          color: 'bg-[#1a2d5a]', titleColor: 'text-teal-200'
+        }
+
+        return(
+          <div className="grid grid-cols-2 gap-3">
+            <InsightCard title={ins1.title} text={ins1.text} color={ins1.color} titleColor={ins1.titleColor}/>
+            <InsightCard title={ins2.title} text={ins2.text} color={ins2.color} titleColor={ins2.titleColor}/>
+          </div>
+        )
+      })()}
     </div>
   )
 }
