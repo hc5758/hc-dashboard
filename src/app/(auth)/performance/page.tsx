@@ -13,13 +13,24 @@ export default async function PerformancePage() {
     db.from('employees').select('id,full_name,division').eq('status','active').order('full_name'),
     db.from('performance_scores').select('*, employee:employees(full_name,division)').order('year',{ascending:false}),
   ])
-  const decEmp = await decryptMany(employees ?? [], [{ key: 'full_name', type: 'string' as const }])
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  const decEmp = await decryptMany(employees ?? [], DEC)
+
+  // Decrypt nested employee.full_name in pip and scores
+  const decPip = await Promise.all((pip ?? []).map(async (p:any) => ({
+    ...p,
+    employee: p.employee ? (await decryptMany([p.employee], DEC))[0] : p.employee
+  })))
+  const decScores = await Promise.all((scores ?? []).map(async (s:any) => ({
+    ...s,
+    employee: s.employee ? (await decryptMany([s.employee], DEC))[0] : s.employee
+  })))
 
   return (
     <div className="page-wrapper">
       <Topbar title="Performance" subtitle="Review Q1 2026"/>
       <div className="page-content">
-        <PerformanceClient pip={pip??[]} employees={decEmp} tna={tna??[]} scores={scores??[]}/>
+        <PerformanceClient pip={decPip} employees={decEmp} tna={tna??[]} scores={decScores}/>
       </div>
     </div>
   )

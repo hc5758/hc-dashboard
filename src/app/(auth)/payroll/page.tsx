@@ -11,13 +11,20 @@ export default async function PayrollPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').order('year',{ascending:false}).order('month',{ascending:false}),
     db.from('employees').select('id,full_name,division').eq('status','active').order('full_name'),
   ])
-  const decEmp = await decryptMany(employees ?? [], [{ key: 'full_name', type: 'string' as const }])
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  const decEmp = await decryptMany(employees ?? [], DEC)
+
+  // Decrypt nested employee.full_name in salary records
+  const decSalary = await Promise.all((salary ?? []).map(async (s:any) => ({
+    ...s,
+    employee: s.employee ? (await decryptMany([s.employee], DEC))[0] : s.employee
+  })))
 
   return (
     <div className="page-wrapper">
       <Topbar title="Payroll Overview" subtitle="2026"/>
       <div className="page-content">
-        <PayrollClient salary={salary??[]} employees={decEmp}/>
+        <PayrollClient salary={decSalary} employees={decEmp}/>
       </div>
     </div>
   )

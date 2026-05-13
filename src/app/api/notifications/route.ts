@@ -1,5 +1,15 @@
+import { decryptMany } from '@/lib/crypto'
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+
+
+async function decryptNested(rows: any[]) {
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  return Promise.all((rows ?? []).map(async (r: any) => ({
+    ...r,
+    employee: r.employee ? (await decryptMany([r.employee], DEC))[0] : r.employee
+  })))
+}
 
 export async function GET() {
   const db = createServiceClient()

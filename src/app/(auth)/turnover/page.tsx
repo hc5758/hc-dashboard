@@ -16,11 +16,17 @@ export default async function TurnoverPage() {
   const decEmp    = await decryptMany(employees ?? [], DEC)
   const decAllEmp = await decryptMany(allEmp ?? [], DEC)
   const active    = decAllEmp.filter(e=>e.status==='active')
+
+  // Decrypt nested employee.full_name in offboarding
+  const decOffboarding = await Promise.all((offboarding ?? []).map(async (o:any) => ({
+    ...o,
+    employee: o.employee ? (await decryptMany([o.employee], DEC))[0] : o.employee
+  })))
   return (
     <div className="page-wrapper">
       <Topbar title="Turnover & Retention" subtitle="Q2 2026"/>
       <div className="flex-1 overflow-y-auto p-6">
-        <TurnoverClient offboarding={offboarding??[]} employees={decEmp} active={active}/>
+        <TurnoverClient offboarding={decOffboarding} employees={decEmp} active={active}/>
       </div>
     </div>
   )

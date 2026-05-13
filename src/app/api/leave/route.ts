@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { decryptMany } from '@/lib/crypto'
 
-// Normalize tanggal dari Supabase — pastikan format YYYY-MM-DD
 function normalizeDates(row: any) {
   if (!row) return row
   const result = { ...row }
@@ -16,6 +16,18 @@ const NO_CACHE = {
   'Pragma': 'no-cache',
 }
 
+const DEC = [{ key: 'full_name', type: 'string' as const }]
+
+async function decryptLeave(rows: any[]) {
+  return Promise.all(rows.map(async (r) => {
+    const norm = normalizeDates(r)
+    return {
+      ...norm,
+      employee: norm.employee ? (await decryptMany([norm.employee], DEC))[0] : norm.employee
+    }
+  }))
+}
+
 export async function GET() {
   const db = createServiceClient()
   const { data, error } = await db
@@ -23,7 +35,8 @@ export async function GET() {
     .select('*, employee:employees(full_name, division, gender)')
     .order('start_date', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: (data ?? []).map(normalizeDates) }, { headers: NO_CACHE })
+  const decrypted = await decryptLeave(data ?? [])
+  return NextResponse.json({ data: decrypted }, { headers: NO_CACHE })
 }
 
 export async function POST(req: NextRequest) {
@@ -35,7 +48,8 @@ export async function POST(req: NextRequest) {
     .select('*, employee:employees(full_name, division, gender)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: normalizeDates(data) }, { headers: NO_CACHE })
+  const [dec] = data ? await decryptLeave([data]) : [data]
+  return NextResponse.json({ data: dec }, { headers: NO_CACHE })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -48,7 +62,8 @@ export async function PATCH(req: NextRequest) {
     .select('*, employee:employees(full_name, division, gender)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: normalizeDates(data) }, { headers: NO_CACHE })
+  const [dec] = data ? await decryptLeave([data]) : [data]
+  return NextResponse.json({ data: dec }, { headers: NO_CACHE })
 }
 
 export async function DELETE(req: NextRequest) {

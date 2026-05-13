@@ -25,7 +25,22 @@ export default async function DashboardPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').eq('year',2026).eq('month',5),
   ])
 
-  const decryptedEmployees = await decryptMany(employees??[], [{key:'full_name',type:'string'}])
+  const DEC = [{key:'full_name',type:'string' as const}]
+  const decryptedEmployees = await decryptMany(employees??[], DEC)
+
+  // Decrypt nested full_name in onboarding, offboarding, contracts, salary
+  const decOnboarding = await Promise.all((onboarding??[]).map(async (o:any)=>({
+    ...o, employee: o.employee?(await decryptMany([o.employee],DEC))[0]:o.employee
+  })))
+  const decOffboarding = await Promise.all((offboarding??[]).map(async (o:any)=>({
+    ...o, employee: o.employee?(await decryptMany([o.employee],DEC))[0]:o.employee
+  })))
+  const decContracts = await Promise.all((contracts??[]).map(async (c:any)=>({
+    ...c, employee: c.employee?(await decryptMany([c.employee],DEC))[0]:c.employee
+  })))
+  const decSalary = await Promise.all((salary??[]).map(async (s:any)=>({
+    ...s, employee: s.employee?(await decryptMany([s.employee],DEC))[0]:s.employee
+  })))
   const active  = decryptedEmployees.filter(e=>e.status==='active')
   const today   = new Date()
   const todayMonth = today.getMonth() + 1
@@ -37,13 +52,13 @@ export default async function DashboardPage() {
     const b = new Date(e.birth_date + 'T00:00:00')
     return b.getMonth() + 1 === todayMonth && b.getDate() === todayDay
   })
-  const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 }).sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
+  const expiringContracts = decContracts.filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 }).sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
   const openRec    = (recruitment??[]).filter(r=>['Open','In Progress','Offering'].includes(r.status||r.hiring_process||''))
   const tnaOverdue = (tna??[]).filter(t=>t.status==='Overdue')
   const totalSalary = (salary??[]).reduce((s,r)=>s+(r.net_salary??0),0)
   const avgYoS = active.length>0?(active.reduce((s,e)=>s+calcYoSDecimal(e.join_date),0)/active.length).toFixed(1):'0'
   const onLeaveToday = (leave??[]).filter(l=>{ const s=new Date(l.start_date),e=new Date(l.end_date); return today>=s&&today<=e })
-  const resignQ2 = (offboarding??[]).filter(o=>o.offboard_type==='Resign').length
+  const resignQ2 = decOffboarding.filter(o=>o.offboard_type==='Resign').length
   const hired = (recruitment??[]).filter(r=>r.status==='Hired'||r.hiring_process==='Joined').length
 
   const KPIs = [
@@ -262,7 +277,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── ONBOARDING CHECKLIST ── */}
-        <OnboardingTable onboarding={onboarding??[]}/>
+        <OnboardingTable onboarding={decOnboarding}/>
 
         {/* ── PIP + Insights side by side ── */}
         <div className="grid grid-cols-3 gap-4">

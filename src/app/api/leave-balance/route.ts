@@ -1,5 +1,15 @@
+import { decryptMany } from '@/lib/crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+
+
+async function decryptNested(rows: any[]) {
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  return Promise.all((rows ?? []).map(async (r: any) => ({
+    ...r,
+    employee: r.employee ? (await decryptMany([r.employee], DEC))[0] : r.employee
+  })))
+}
 
 export async function GET(req: NextRequest) {
   const db = createServiceClient()
@@ -12,7 +22,8 @@ export async function GET(req: NextRequest) {
   if (empId) q = q.eq('employee_id', empId)
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 
 export async function POST(req: NextRequest) {
@@ -23,7 +34,8 @@ export async function POST(req: NextRequest) {
     .select('*, employee:employees(full_name,division,join_date,employment_type)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 
 export async function PATCH(req: NextRequest) {
@@ -33,7 +45,8 @@ export async function PATCH(req: NextRequest) {
     .select('*, employee:employees(full_name,division,join_date,employment_type)')
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 
 export async function DELETE(req: NextRequest) {

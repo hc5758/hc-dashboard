@@ -1,24 +1,37 @@
+import { decryptMany } from '@/lib/crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+
+async function decryptNested(rows: any[]) {
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  return Promise.all((rows ?? []).map(async (r: any) => ({
+    ...r,
+    employee: r.employee ? (await decryptMany([r.employee], DEC))[0] : r.employee
+  })))
+}
+
 export async function GET() {
   const db = createServiceClient()
   const { data, error } = await db.from('offboarding').select('*, employee:employees(full_name,division,join_date,level)').order('report_date',{ascending:false})
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
   const { data, error } = await db.from('offboarding').insert(body).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, ...body } = await req.json()
   const { data, error } = await db.from('offboarding').update(body).eq('id',id).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  const decrypted = await decryptNested(data ?? [])
+  return NextResponse.json({ data: decrypted })
 }
 export async function DELETE(req: NextRequest) {
   const db = createServiceClient()
