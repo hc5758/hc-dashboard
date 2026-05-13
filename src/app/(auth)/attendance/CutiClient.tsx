@@ -85,8 +85,10 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     try{
       const buf=await file.arrayBuffer(); const wb=XLSX.read(buf, { cellDates: true })
       const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
+      const normD=(v:any)=>v instanceof Date?`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`:v
+      const normalizedRows=rows.map((r:any)=>Object.fromEntries(Object.entries(r).map(([k,v])=>[k,normD(v)])))
       let count=0
-      for(const row of rows){
+      for(const row of normalizedRows){
         const empName=row['Nama']||''
         const emp=employees.find((ex:any)=>ex.full_name.toLowerCase()===empName.toLowerCase())
         if(!emp) continue

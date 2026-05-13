@@ -133,8 +133,10 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
     try{
       const buf=await file.arrayBuffer();const wb=XLSX.read(buf, { cellDates: true })
       const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
+      const normD=(v:any)=>v instanceof Date?`${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`:v
+      const normalizedRows=rows.map((r:any)=>Object.fromEntries(Object.entries(r).map(([k,v])=>[k,normD(v)])))
       let count=0
-      for(const row of rows){
+      for(const row of normalizedRows){
         if(!row['Position'])continue
         const hp=row['Hiring Process']||'Open'
         const parseD=(v:any)=>{ if(!v)return null; const s=String(v).trim(); if(s.includes('T'))return s.slice(0,10); if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s; return null }

@@ -151,11 +151,34 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
     try{
       const buf=await file.arrayBuffer();const wb=XLSX.read(buf, { cellDates: true })
       const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: false, dateNF: 'yyyy-mm-dd' })
-      flash(`${rows.length} baris ditemukan. Mengupload...`)
-      const res=await fetch('/api/upload/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows})})
+
+      // Normalize: pastikan semua value yang Date object diconvert ke string YYYY-MM-DD
+      const normalizeRow = (row: any) => {
+        const out: any = {}
+        for(const key of Object.keys(row)){
+          const val = row[key]
+          if(val instanceof Date){
+            out[key] = `${val.getFullYear()}-${String(val.getMonth()+1).padStart(2,'0')}-${String(val.getDate()).padStart(2,'0')}`
+          } else {
+            out[key] = val
+          }
+        }
+        return out
+      }
+      const normalizedRows = rows.map(normalizeRow)
+
+      flash(`${normalizedRows.length} baris ditemukan. Mengupload...`)
+      const res=await fetch('/api/upload/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:normalizedRows})})
       const data=await res.json()
       if(!res.ok)throw new Error(data.error)
-      flash(`✓ ${data.count} karyawan berhasil diimport!`)
+
+      // Tampilkan detail jika ada yang di-skip
+      if(data.errors?.length){
+        flash(`✓ ${data.count} berhasil, ${data.skipped} dilewati: ${data.errors[0]}`)
+      } else {
+        flash(`✓ ${data.count} karyawan berhasil diimport!`)
+      }
+
       const fresh=await fetch('/api/employees').then(r=>r.json())
       if(fresh.data)setEmployees(fresh.data)
     }catch(err:any){flash(`✗ Error: ${err.message}`)}
