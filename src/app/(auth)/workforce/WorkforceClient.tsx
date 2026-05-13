@@ -8,7 +8,7 @@ import { fmtDate, calcYoS, statusLabel, cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import * as XLSX from 'xlsx'
 const EMPTY: any = {
-  employee_id:'',full_name:'',email:'',phone:'',position:'',level:'',
+  employee_id:'',full_name:'',email:'',position:'',level:'',
   division:'Creative',entity:'SSR',employment_type:'PKWTT',work_location:'Jakarta',
   status:'active',gender:'Perempuan',birth_date:'',marital_status:'Belum Kawin',
   join_date:'',end_date:'',notes:'',
@@ -57,7 +57,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
     setShowModal(true)
   }
   function openEdit(emp:any){
-    setForm({employee_id:emp.employee_id||'',full_name:emp.full_name||'',email:emp.email||'',phone:emp.phone||'',
+    setForm({employee_id:emp.employee_id||'',full_name:emp.full_name||'',email:emp.email||'',
       position:emp.position||'',level:emp.level||'',division:emp.division||'Creative',entity:emp.entity||'SSR',
       employment_type:emp.employment_type||'PKWTT',work_location:emp.work_location||'Jakarta',status:emp.status||'active',
       gender:emp.gender||'Perempuan',birth_date:emp.birth_date||'',marital_status:emp.marital_status||'',
@@ -381,9 +381,9 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
               <div><label className="form-label">Employee ID *</label><input value={form.employee_id} onChange={e=>fv('employee_id',e.target.value)} className="form-input" placeholder="EMP021" disabled={!!editId}/></div>
               <div><label className="form-label">Nama lengkap *</label><input value={form.full_name} onChange={e=>fv('full_name',e.target.value)} className="form-input" placeholder="Nama karyawan"/></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="form-label">Email</label><input type="email" value={form.email} onChange={e=>fv('email',e.target.value)} className="form-input" placeholder="email@co.id"/></div>
-              <div><label className="form-label">No. HP</label><input value={form.phone} onChange={e=>fv('phone',e.target.value)} className="form-input" placeholder="08xx"/></div>
+            <div>
+              <label className="form-label">Email</label>
+              <input type="email" value={form.email} onChange={e=>fv('email',e.target.value)} className="form-input" placeholder="email@co.id"/>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="form-label">Posisi *</label><input value={form.position} onChange={e=>fv('position',e.target.value)} className="form-input" placeholder="e.g. Graphic Designer"/></div>

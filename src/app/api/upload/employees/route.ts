@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
       full_name:       encName,
       birth_date:      encBirth,
       email:           row['Email']              || row['email']           || null,
-      phone:           row['No HP']              || row['phone']           || null,
       position:        String(row['Posisi']      || row['position']        || '').trim(),
       level:           row['Level']              || row['level']           || null,
       division:        String(row['Divisi']      || row['division']        || '').trim(),
