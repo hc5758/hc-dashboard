@@ -308,8 +308,16 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
             </div>
             <BulkBar count={bulk.count} onDelete={bulkDeleteEmployees} deleting={bulkDeleting} label="karyawan"/>
           </div>
-          <div className="card overflow-x-auto">
-            <table className="tbl" style={{minWidth:880}}>
+          <div className="card" style={{overflow:'hidden'}}>
+            <style>{`
+              .workforce-scroll { overflow-x: auto; overflow-y: visible; }
+              .workforce-scroll::-webkit-scrollbar { height: 5px; }
+              .workforce-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+              .workforce-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+              .workforce-scroll::-webkit-scrollbar-thumb:hover { background: #2ab89a; }
+            `}</style>
+            <div className="workforce-scroll">
+            <table className="tbl" style={{minWidth:960}}>
               <thead><tr>
                 <th className="w-8">
                   <input type="checkbox" className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
@@ -317,7 +325,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     onChange={()=>bulk.toggleAll(filtered.map(e=>e.id))}/>
                 </th>
                 <th className="text-center w-16">Aksi</th>
-                {([{col:'full_name',label:'Karyawan'},{col:'division',label:'Divisi'},{col:'employee_id',label:'ID'}] as const).map(({col,label})=>(
+                {([{col:'full_name',label:'Karyawan'},{col:'division',label:'Divisi'}] as const).map(({col,label})=>(
                   <th key={col} className="cursor-pointer select-none hover:text-teal-600" onClick={()=>toggleSort(col)}>
                     <span className="flex items-center gap-1">{label}<span className="text-[10px] text-slate-300">{sortCol===col?(sortDir==='asc'?'↑':'↓'):'↕'}</span></span>
                   </th>
@@ -349,7 +357,6 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     </td>
                     <td><div className="flex items-center gap-2"><Avatar name={e.full_name} size="sm"/><div><div className="font-bold text-[12px]">{e.full_name}</div><div className="text-[10px] text-slate-300">{e.employee_id}</div></div></div></td>
                     <td className="text-[11px]">{e.division}</td>
-                    <td className="text-[11px] text-slate-400">{e.employee_id}</td>
                     <td className="text-[11px] text-slate-600">{e.position}</td>
                     <td><Badge variant="navy">{e.entity}</Badge></td>
                     <td><Badge variant={e.employment_type==='PKWTT'?'teal':'blue'}>{e.employment_type}</Badge></td>
@@ -392,6 +399,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                 {filtered.length===0&&<EmptyState message="Tidak ada data yang sesuai filter"/>}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
