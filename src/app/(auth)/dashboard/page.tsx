@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').eq('year',2026).eq('month',5),
   ])
 
-  const decryptedEmployees = await decryptMany(employees??[], [{key:'full_name',type:'string'},{key:'birth_date',type:'string'}])
+  const decryptedEmployees = await decryptMany(employees??[], [{key:'full_name',type:'string'}])
   const active  = decryptedEmployees.filter(e=>e.status==='active')
   const today   = new Date()
   const todayMonth = today.getMonth() + 1

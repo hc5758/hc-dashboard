@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { encryptFields, decryptFields, decryptMany } from '@/lib/crypto'
 
-// Kolom yang dienkripsi
-const ENC_KEYS   = ['full_name', 'birth_date'] as const
-const DEC_FIELDS = [
-  { key: 'full_name',  type: 'string' as const },
-  { key: 'birth_date', type: 'string' as const },
-]
+// Hanya full_name yang dienkripsi — birth_date tetap plain (tipe date di DB)
+const ENC_KEYS   = ['full_name'] as const
+const DEC_FIELDS = [{ key: 'full_name', type: 'string' as const }]
 
 export async function GET(req: NextRequest) {
   const db = createServiceClient()
@@ -33,7 +30,6 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, updated_at, ...body } = await req.json()
-  // Enkripsi field yang ada di body
   const fieldsToEncrypt = ENC_KEYS.filter(k => body[k] !== undefined && body[k] !== null && body[k] !== '')
   const encrypted = fieldsToEncrypt.length > 0 ? await encryptFields(body, fieldsToEncrypt) : body
   const { data, error } = await db.from('employees').update(encrypted).eq('id', id).select().maybeSingle()
