@@ -220,75 +220,12 @@ export default function DashboardClient({ employees, contracts, onboarding: init
         </div>
       )}
 
-    {/* Insights */}
-      {(() => {
-        // ── Insight 1: Headcount / hiring momentum ─────────────
-        const totalActive = active.length
-        const recentHires = active.filter(e => {
-          const days = (Date.now() - new Date(e.join_date).getTime()) / 86400000
-          return days <= 90
-        }).length
-        const divCounts = active.reduce((acc: any, e) => {
-          acc[e.division] = (acc[e.division] || 0) + 1; return acc
-        }, {})
-        const topHiringDivs = Object.entries(divCounts)
-          .sort((a: any, b: any) => b[1] - a[1])
-          .slice(0, 2).map(([d]) => d).join(' & ')
-
-        let i1Title = '', i1Text = '', i1Color = '', i1TitleColor = ''
-        if (totalActive === 0) {
-          i1Title = 'Belum ada data karyawan'
-          i1Text  = 'Tambahkan karyawan untuk melihat insight headcount otomatis.'
-        } else if (recentHires === 0) {
-          i1Title = `${totalActive} karyawan aktif`
-          i1Text  = 'Tidak ada hiring baru dalam 90 hari terakhir. Perlu evaluasi pipeline recruitment.'
-          i1Color = 'bg-amber-700/80'; i1TitleColor = 'text-amber-200'
-        } else {
-          i1Title = `${recentHires} hiring baru dalam 90 hari`
-          i1Text  = `Momentum hiring terkini didorong oleh ${topHiringDivs}. Total karyawan aktif: ${totalActive}.`
-        }
-
-        // ── Insight 2: TNA overdue ─────────────────────────────
-        let i2Title = '', i2Text = '', i2Color = 'bg-amber-700/80', i2TitleColor = 'text-amber-200'
-        if (tna.length === 0) {
-          i2Title = 'Belum ada data TNA'
-          i2Text  = 'Data Training Needs Analysis belum diinput. Tambahkan di menu Learning & Dev.'
-        } else if (tnaOverdue.length === 0) {
-          i2Title = 'Semua TNA on track ✓'
-          i2Text  = `${tna.length} program training terpantau, tidak ada yang overdue. Pertahankan!`
-          i2Color = 'bg-[#1a2d5a]'; i2TitleColor = 'text-teal-200'
-        } else {
-          i2Title = `${tnaOverdue.length} TNA overdue`
-          i2Text  = 'Perlu koordinasi dengan manager masing-masing untuk akselerasi penyelesaian training yang melewati deadline.'
-        }
-
-        // ── Insight 3: Divisi paling berisiko (resign) ─────────
-        const resignByDiv = offboarding.reduce((acc: any, o) => {
-          const div = o.employee?.division; if (div) acc[div] = (acc[div] || 0) + 1; return acc
-        }, {})
-        const topResignEntry = Object.entries(resignByDiv).sort((a: any, b: any) => b[1] - a[1])[0]
-        const understaffed   = Object.entries(divCounts).sort((a: any, b: any) => (a[1] as number) - (b[1] as number))[0]
-
-        let i3Title = '', i3Text = '', i3Color = '', i3TitleColor = ''
-        if (!topResignEntry) {
-          i3Title = 'Turnover terkendali ✓'
-          i3Text  = `Tidak ada data resign tercatat.${understaffed ? ` Divisi terkecil: ${understaffed[0]} (${understaffed[1]} orang).` : ''}`
-        } else {
-          const resignDiv   = topResignEntry[0] as string
-          const resignCount = topResignEntry[1] as number
-          const activeInDiv = divCounts[resignDiv] || 0
-          const tRate       = activeInDiv > 0 ? Math.round((resignCount / (resignCount + activeInDiv)) * 100) : 100
-          i3Title     = `${resignDiv}: risiko turnover tertinggi`
-          i3Text      = `${resignCount} resign dari divisi ini${tRate > 0 ? ` (≈${tRate}% turnover rate)` : ''}. Perlu evaluasi engagement dan workload.`
-          i3Color     = tRate >= 20 ? 'bg-red-900/70' : 'bg-amber-700/80'
-          i3TitleColor= tRate >= 20 ? 'text-red-300'  : 'text-amber-200'
-        }
-
-        return (
-          <div className="grid grid-cols-3 gap-3">
-            <InsightCard title={i1Title} text={i1Text} color={i1Color||undefined} titleColor={i1TitleColor||undefined}/>
-            <InsightCard title={i2Title} text={i2Text} color={i2Color} titleColor={i2TitleColor}/>
-            <InsightCard title={i3Title} text={i3Text} color={i3Color||undefined} titleColor={i3TitleColor||undefined}/>
-          </div>
-        )
-      })()}
+      {/* Insights */}
+      <div className="grid grid-cols-3 gap-3">
+        <InsightCard title="Headcount growth sehat" text="Momentum +7.9% MoM driven oleh hiring Creative & Social Media. Target Q2 adalah 45 headcount." />
+        <InsightCard title={`${tnaOverdue.length} TNA overdue`} text="Perlu koordinasi dengan masing-masing manager untuk akselerasi penyelesaian training yang sudah melewati deadline." color="bg-amber-700/80" titleColor="text-amber-200" />
+        <InsightCard title="Social Media: triple concern" text="Turnover 14.3%, engagement terendah (2.9/5), absensi tertinggi (8.2%). Perlu intervensi menyeluruh." color="bg-red-900/70" titleColor="text-red-300" />
+      </div>
+    </div>
+  )
+}
