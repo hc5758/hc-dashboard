@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { decryptMany } from '@/lib/crypto'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 import Topbar from '@/components/layout/Topbar'
@@ -24,8 +25,18 @@ export default async function DashboardPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').eq('year',2026).eq('month',5),
   ])
 
-  const active  = (employees??[]).filter(e=>e.status==='active')
+  const decryptedEmployees = await decryptMany(employees??[], [{key:'full_name',type:'string'}])
+  const active  = decryptedEmployees.filter(e=>e.status==='active')
   const today   = new Date()
+  const todayMonth = today.getMonth() + 1
+  const todayDay   = today.getDate()
+
+  // Ulang tahun hari ini
+  const birthdayToday = active.filter(e => {
+    if (!e.birth_date) return false
+    const b = new Date(e.birth_date + 'T00:00:00')
+    return b.getMonth() + 1 === todayMonth && b.getDate() === todayDay
+  })
   const expiringContracts = (contracts??[]).filter(c=>{ const d=daysUntil(c.end_date); return d>=0&&d<=60 }).sort((a,b)=>daysUntil(a.end_date)-daysUntil(b.end_date))
   const openRec    = (recruitment??[]).filter(r=>['Open','In Progress','Offering'].includes(r.status||r.hiring_process||''))
   const tnaOverdue = (tna??[]).filter(t=>t.status==='Overdue')
@@ -219,6 +230,32 @@ export default async function DashboardPage() {
                     </div>
                   </div>
                 ))
+              }
+            </div>
+
+            {/* Ulang Tahun Hari Ini */}
+            <div className="card">
+              <div className="card-head">
+                <span className="card-title">🎂 Ulang Tahun Hari Ini</span>
+                <Badge variant={birthdayToday.length>0?'teal':'gray'}>{birthdayToday.length} orang</Badge>
+              </div>
+              {birthdayToday.length===0
+                ? <div className="px-5 py-3 text-[12px] text-slate-400">Tidak ada ulang tahun hari ini</div>
+                : birthdayToday.map(e=>{
+                    const age = today.getFullYear() - new Date(e.birth_date+'T00:00:00').getFullYear()
+                    return(
+                      <div key={e.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-50 last:border-0">
+                        <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 font-bold text-[11px] flex-shrink-0">
+                          {e.full_name?.charAt(0)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12.5px] font-semibold text-slate-800 truncate">{e.full_name}</div>
+                          <div className="text-[10.5px] text-slate-400">{e.division} · {age} tahun</div>
+                        </div>
+                        <div className="text-lg">🎉</div>
+                      </div>
+                    )
+                  })
               }
             </div>
           </div>
