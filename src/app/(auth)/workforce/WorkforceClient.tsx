@@ -267,7 +267,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     checked={bulk.isAllChecked(filtered.map(e=>e.id))}
                     onChange={()=>bulk.toggleAll(filtered.map(e=>e.id))}/>
                 </th>
-                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>End date</th><th className="text-center">Aksi</th>
+                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>Tgl Lahir</th><th>End date</th><th className="text-center">Aksi</th>
               </tr></thead>
               <tbody>
                 {filtered.map(e=>(
@@ -284,6 +284,25 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     <td><StatusBadge status={e.status}/></td>
                     <td className="text-[11px] text-slate-400">{fmtDate(e.join_date)}</td>
                     <td className="text-[11px]">{calcYoS(e.join_date)}</td>
+                    <td className="text-[11px] text-slate-400">
+                      {e.birth_date ? (()=>{
+                        const b = new Date(e.birth_date+'T00:00:00')
+                        const today = new Date()
+                        const isToday = b.getMonth()===today.getMonth()&&b.getDate()===today.getDate()
+                        const nextBirthday = new Date(today.getFullYear(), b.getMonth(), b.getDate())
+                        if(nextBirthday < today) nextBirthday.setFullYear(today.getFullYear()+1)
+                        const daysLeft = Math.round((nextBirthday.getTime()-today.getTime())/86400000)
+                        return(
+                          <div className="flex items-center gap-1.5">
+                            <span>{b.getDate()}/{b.getMonth()+1}/{b.getFullYear()}</span>
+                            {isToday && <span title="Ulang tahun hari ini!">🎂</span>}
+                            {!isToday && daysLeft<=30 && (
+                              <span className="text-[10px] text-amber-500 font-semibold">{daysLeft}hr lagi</span>
+                            )}
+                          </div>
+                        )
+                      })() : <span className="text-slate-300">–</span>}
+                    </td>
                     <td className={cn('text-[11px]',e.end_date&&new Date(e.end_date)<new Date(Date.now()+60*86400000)?'text-red-600 font-bold':'text-slate-400')}>{fmtDate(e.end_date)||'–'}</td>
                     <td><div className="flex items-center justify-center gap-1">
                       <button onClick={()=>openEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 transition-colors"><Pencil size={12}/></button>
