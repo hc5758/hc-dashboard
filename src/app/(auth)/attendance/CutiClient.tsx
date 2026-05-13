@@ -134,17 +134,50 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   // ── Helpers ──────────────────────────────────────────────
   // Auto-calculate saldo tanpa perlu init manual
+  function calcAnnualEntitled(joinDate: string, year: number): number {
+    if (!joinDate) return 12
+    const join = new Date(joinDate + 'T00:00:00')
+    const joinYear  = join.getFullYear()
+    const joinMonth = join.getMonth() // 0-based
+
+    // Hitung berapa bulan kerja penuh di tahun ini
+    const startOfYear = new Date(year, 0, 1)
+    const endOfYear   = new Date(year, 11, 31)
+
+    // Sudah genap 1 tahun sebelum tahun ini mulai?
+    const oneYearAfterJoin = new Date(join)
+    oneYearAfterJoin.setFullYear(join.getFullYear() + 1)
+
+    if (oneYearAfterJoin <= startOfYear) {
+      // Sudah full 1 tahun sebelum tahun ini → 12 hari penuh
+      return 12
+    }
+
+    if (join > endOfYear) {
+      // Belum join di tahun ini
+      return 0
+    }
+
+    // Masih dalam tahun pertama — hitung bulan kerja proporsional di tahun ini
+    // Referensi: dari bulan join (atau Januari kalau sudah lewat tahun join) sampai Desember
+    const startMonth = joinYear === year ? joinMonth : 0 // mulai bulan join atau Januari
+    const monthsWorked = 12 - startMonth
+    return Math.min(monthsWorked, 12)
+  }
+
   function getSaldo(empId:string, year:number=2026) {
     const emp = employees.find(e=>e.id===empId)
     const bal = balances.find(b=>b.employee_id===empId&&b.year===year)
 
-    // Saldo tahunan
-    const annualEntitled = bal?.annual_entitled ?? 12
+    // Hak tahunan — dihitung otomatis dari join_date, bisa di-override manual via bal
+    const autoEntitled = calcAnnualEntitled(emp?.join_date || '', year)
+    const annualEntitled = bal?.annual_entitled != null ? bal.annual_entitled : autoEntitled
 
     // Carry-over: cek balance tahun lalu, max 5hr, hangus setelah Juni
     const prevBal = balances.find(b=>b.employee_id===empId&&b.year===year-1)
+    const prevAutoEntitled = calcAnnualEntitled(emp?.join_date || '', year-1)
+    const prevEntitled = prevBal?.annual_entitled != null ? prevBal.annual_entitled : prevAutoEntitled
     const prevAnnualUsed = prevBal?.annual_used ?? leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
-    const prevEntitled = prevBal?.annual_entitled ?? 12
     const prevCarryOver = prevBal?.annual_carryover ?? 0
     const prevRemaining = (prevEntitled + prevCarryOver) - prevAnnualUsed
     const carryOver = bal?.annual_carryover ?? calcCarryOver(prevRemaining)
@@ -385,8 +418,8 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   // ── Init balance for employee ─────────────────────────────
   async function initBalance(empId:string){
     const emp=employees.find(e=>e.id===empId)
-    const entitled=calcAnnualEntitled(emp?.join_date)
-    const payload={employee_id:empId,year:2026,annual_entitled:entitled,annual_carryover:0,annual_used:0,overtime_entitled:0,overtime_used:0,sick_used:0}
+    const entitled=calcAnnualEntitled(emp?.join_date||'', saldoYear)
+    const payload={employee_id:empId,year:saldoYear,annual_entitled:entitled,annual_carryover:0,annual_used:0,overtime_entitled:0,overtime_used:0,sick_used:0}
     const res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     const data=await res.json()
     if(res.ok&&data.data){setBalances(prev=>[{...data.data,employee:emp},...prev])}
@@ -835,7 +868,16 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                         <td className="font-semibold text-[12.5px]">{emp.full_name}</td>
                         <td className="text-[12px] text-slate-400">{emp.division}</td>
                         <td className="text-[12px] text-slate-500">{calcYoS(emp.join_date)}</td>
-                        <td className="text-center font-semibold">{s.annualEntitled}</td>
+                        <td className="text-center font-semibold">
+                          <div>{s.annualEntitled}</div>
+                          {(()=>{
+                            const auto = calcAnnualEntitled(emp.join_date||'', saldoYear)
+                            const isOverride = bal?.annual_entitled != null && bal.annual_entitled !== auto
+                            if(isOverride) return <div className="text-[9px] text-blue-400">override</div>
+                            if(auto < 12) return <div className="text-[9px] text-amber-500">proporsional</div>
+                            return null
+                          })()}
+                        </td>
                         <td className="text-center text-slate-500">{s.carryOver}</td>
                         <td className="text-center text-slate-600">{s.annualUsed}</td>
                         <td className="text-center">
@@ -1111,7 +1153,15 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                   value={balForm.annual_entitled}
                   onChange={e=>setBalForm((p:any)=>({...p,annual_entitled:parseInt(e.target.value)||0}))}
                   className="form-input"/>
-                <div className="text-[10.5px] text-slate-400 mt-1">Default: 12 hari/tahun</div>
+                {(()=>{
+                  const emp = employees.find(e=>e.id===balForm.employee_id)
+                  if(!emp?.join_date) return null
+                  const auto = calcAnnualEntitled(emp.join_date, balForm.year||saldoYear)
+                  return <div className="text-[10.5px] text-teal-600 mt-1">
+                    Auto dari join date: <strong>{auto} hari</strong>
+                    {auto < 12 ? ' (proporsional)' : ' (full)'}
+                  </div>
+                })()}
               </div>
               <div>
                 <label className="form-label">Carry-over (maks 5)</label>
