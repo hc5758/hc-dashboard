@@ -29,7 +29,7 @@ const SPECIAL_TYPES = [
 ]
 
 // Hak cuti tahunan: selalu 12 hari
-function calcAnnualEntitled(_joinDate: string): number { return 12 }
+function calcAnnualEntitledStub(_joinDate: string): number { return 12 }
 
 // Carry-over max 5 hr, hangus setelah Juni
 function calcCarryOver(prevRemaining: number): number {
@@ -137,33 +137,30 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   // Auto-calculate saldo tanpa perlu init manual
   function calcAnnualEntitled(joinDate: string, year: number): number {
     if (!joinDate) return 12
-    const join = new Date(joinDate + 'T00:00:00')
-    const anniversary = new Date(join)
-    anniversary.setFullYear(join.getFullYear() + 1)
-
-    const startOfYear = new Date(year, 0, 1)
-    const endOfYear   = new Date(year, 11, 31)
+    const join      = new Date(joinDate + 'T00:00:00')
+    const joinYear  = join.getFullYear()
+    const joinMonth = join.getMonth() // 0-based
+    const joinQ     = Math.floor(joinMonth / 3) + 1 // Q1=1..Q4=4
 
     // Belum join tahun ini
-    if (join > endOfYear) return 0
+    if (joinYear > year) return 0
 
-    // Sudah genap 1 tahun sebelum atau di awal tahun ini → full 12
-    // anniversary <= 1 Jan year (sudah lewat sebelum tahun dimulai)
-    if (anniversary.getFullYear() < year || 
-        (anniversary.getFullYear() === year && anniversary.getMonth() === 0)) return 12
+    // Tahun join → prorata: 1 hari per bulan aktif (dari bulan join sampai Desember)
+    if (joinYear === year) return 12 - joinMonth
 
-    // Join di tahun ini (tahun pertama kerja)
-    // 1 hari per bulan dari bulan join sampai Desember
-    if (join.getFullYear() === year) {
-      return 12 - join.getMonth() // join Jan(0)=12, Mar(2)=10, Des(11)=1
+    const yearsAfter = year - joinYear
+
+    if (yearsAfter === 1) {
+      // Join Q1 → langsung full 12 di tahun berikutnya
+      if (joinQ === 1) return 12
+      // Join Q2/Q3/Q4 → masih prorata di tahun+1: sisa bulan menuju 1 tahun penuh
+      // Contoh: join April(3) → dapat 9 bln di 2025, sisa 3 bln (Jan-Mar) di 2026
+      return joinMonth // April=3, Nov=10, dst
     }
 
-    // Join tahun sebelumnya, anniversary jatuh di tahun ini
-    // Proporsional: 1 hari per bulan dari Jan s/d bulan anniversary (inklusif)
-    // Contoh: anniversary Juni 2026 → Jan Feb Mar Apr Mei Jun = 6 hari
-    return anniversary.getMonth() + 1
+    // 2+ tahun setelah join → full 12
+    return 12
   }
-
   function getSaldo(empId:string, year:number=2026) {
     const emp = employees.find(e=>e.id===empId)
     const bal = balances.find(b=>b.employee_id===empId&&b.year===year)
@@ -322,6 +319,21 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   async function saveLeave(){
     if(!leaveForm.employee_id||!leaveForm.start_date||!leaveForm.end_date){alert('Pilih karyawan dan tanggal');return}
+
+    // Validasi masa tunggu (hanya untuk cuti Tahunan, bukan edit)
+    if(!editId && leaveForm.leave_type==='Tahunan'){
+      const emp = employees.find(e=>e.id===leaveForm.employee_id)
+      if(emp?.join_date){
+        const join     = new Date(emp.join_date+'T00:00:00')
+        const start    = new Date(leaveForm.start_date+'T00:00:00')
+        const months   = (start.getFullYear()-join.getFullYear())*12+(start.getMonth()-join.getMonth())
+        const minMonths = emp.employment_type==='PKWTT' ? 3 : 6
+        if(months < minMonths){
+          alert(`Karyawan ini belum memenuhi masa tunggu.\n${emp.employment_type==='PKWTT'?'PKWTT':'PKWT'} minimal ${minMonths} bulan kerja sebelum dapat menggunakan cuti tahunan.\nMasa kerja saat ini: ${months} bulan.`)
+          return
+        }
+      }
+    }
 
     // Validasi saldo OT — cek dulu sebelum save
     if(!leaveForm.is_combined && leaveForm.leave_type==='Overtime'){
@@ -880,7 +892,11 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
                             const auto = calcAnnualEntitled(emp.join_date||'', saldoYear)
                             const isOverride = bal?.annual_entitled != null && bal.annual_entitled !== auto
                             if(isOverride) return <div className="text-[9px] text-blue-400">override</div>
-                            if(auto < 12) return <div className="text-[9px] text-amber-500">proporsional</div>
+                            if(auto < 12){
+                              const join = emp.join_date ? new Date(emp.join_date+'T00:00:00') : null
+                              const joinQ = join ? Math.floor(join.getMonth()/3)+1 : null
+                              return <div className="text-[9px] text-amber-500">prorata Q{joinQ}</div>
+                            }
                             return null
                           })()}
                         </td>
