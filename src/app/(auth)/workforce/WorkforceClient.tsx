@@ -329,7 +329,18 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                         )
                       })() : <span className="text-slate-300">–</span>}
                     </td>
-                    <td className={cn('text-[11px]',e.end_date&&new Date(e.end_date)<new Date(Date.now()+60*86400000)?'text-red-600 font-bold':'text-slate-400')}>{fmtDate(e.end_date)||'–'}</td>
+                    <td className={cn('text-[11px]',e.end_date&&new Date(e.end_date)<new Date(Date.now()+60*86400000)?'text-red-600 font-bold':'text-slate-400')}>
+                      {e.end_date ? (()=>{
+                        const d = Math.round((new Date(e.end_date).getTime()-Date.now())/86400000)
+                        const fmt = fmtDate(e.end_date)
+                        if(d<0) return <div><div className="text-slate-400">{fmt}</div><div className="text-[10px] text-slate-300">Sudah lewat</div></div>
+                        if(d===0) return <div><div className="text-red-600 font-bold">{fmt}</div><div className="text-[10px] text-red-500 font-bold">Hari ini!</div></div>
+                        if(d<=7)  return <div><div className="text-red-600 font-bold">{fmt}</div><div className="text-[10px] text-red-500 font-semibold">{d} hari lagi</div></div>
+                        if(d<=30) return <div><div className="text-orange-600 font-bold">{fmt}</div><div className="text-[10px] text-orange-500 font-semibold">{d} hari lagi</div></div>
+                        if(d<=60) return <div><div className="text-amber-600 font-semibold">{fmt}</div><div className="text-[10px] text-amber-500">{d} hari lagi</div></div>
+                        return <div className="text-slate-400">{fmt}</div>
+                      })() : <span className="text-slate-300">–</span>}
+                    </td>
                     <td><div className="flex items-center justify-center gap-1">
                       <button onClick={()=>openEdit(e)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-blue-50 hover:text-blue-600 text-slate-400 transition-colors"><Pencil size={12}/></button>
                       <button onClick={()=>deleteEmployee(e.id,e.full_name)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors"><Trash2 size={12}/></button>
