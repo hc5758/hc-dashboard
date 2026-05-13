@@ -293,7 +293,7 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
                     checked={bulk.isAllChecked(filtered.map(e=>e.id))}
                     onChange={()=>bulk.toggleAll(filtered.map(e=>e.id))}/>
                 </th>
-                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>Tgl Lahir</th><th>End date</th><th className="text-center">Aksi</th>
+                <th>Karyawan</th><th>Posisi</th><th>Divisi</th><th>Entitas</th><th>Kontrak</th><th>Status</th><th>Join date</th><th>Masa kerja</th><th>Tgl Lahir</th><th>End Kontrak</th><th className="text-center">Aksi</th>
               </tr></thead>
               <tbody>
                 {filtered.map(e=>(
