@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       status:          normalizeStatus(row['Status']),
       gender:          row['Gender']             || null,
       marital_status:  row['Status Pernikahan']  || null,
-      birth_date:      parseDate(row['Tgl Lahir'] || row['birth_date']),  // plain — tipe date di DB
+      birth_date:      parseDate(row['Tgl Lahir'] || row['birth_date']),
       join_date:       joinDate,
       end_date:        parseDate(row['End Date'] || row['end_date']),
       notes:           row['Catatan']            || null,
