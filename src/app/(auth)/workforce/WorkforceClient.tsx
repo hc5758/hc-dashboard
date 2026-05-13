@@ -174,9 +174,11 @@ export default function WorkforceClient({ employees: init }: { employees: any[] 
 
       // Tampilkan detail jika ada yang di-skip
       if(data.errors?.length){
-        flash(`✓ ${data.count} berhasil, ${data.skipped} dilewati: ${data.errors[0]}`)
+        const errMsg = data.errors.slice(0,3).join(' | ')
+        flash(`✓ ${data.count} berhasil · ${data.skipped} gagal: ${errMsg}`)
+        console.error('Import errors:', data.errors)
       } else {
-        flash(`✓ ${data.count} karyawan berhasil diimport!`)
+        flash(`✓ ${data.count} dari ${normalizedRows.length} karyawan berhasil diimport!`)
       }
 
       // Fetch fresh — API GET sudah decrypt nama otomatis
