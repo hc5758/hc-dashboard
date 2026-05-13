@@ -77,6 +77,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   const [leaveForm, setLeaveForm] = useState<any>(EMPTY_LEAVE)
   const [saldoMsg, setSaldoMsg] = useState('')
   const saldoFileRef = useRef<HTMLInputElement>(null)
+  const leaveFileRef = useRef<HTMLInputElement>(null)
   const flashSaldo = (t:string)=>{setSaldoMsg(t);setTimeout(()=>setSaldoMsg(''),4000)}
 
   async function importSaldo(e: React.ChangeEvent<HTMLInputElement>){
@@ -177,10 +178,17 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
     const prevBal = balances.find(b=>b.employee_id===empId&&b.year===year-1)
     const prevAutoEntitled = calcAnnualEntitled(emp?.join_date || '', year-1)
     const prevEntitled = prevBal?.annual_entitled != null ? prevBal.annual_entitled : prevAutoEntitled
-    const prevAnnualUsed = prevBal?.annual_used ?? leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
+    const prevAnnualUsed = (prevBal?.annual_used != null)
+      ? prevBal.annual_used
+      : leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year-1).reduce((s,l)=>s+l.total_days,0)
     const prevCarryOver = prevBal?.annual_carryover ?? 0
     const prevRemaining = (prevEntitled + prevCarryOver) - prevAnnualUsed
-    const carryOver = bal?.annual_carryover ?? calcCarryOver(prevRemaining)
+
+    // Kalau bal.annual_carryover sudah diisi manual (> 0), pakai nilai itu
+    // Kalau 0 atau tidak ada, hitung otomatis dari sisa tahun lalu
+    const carryOver = (bal?.annual_carryover != null && bal.annual_carryover > 0)
+      ? bal.annual_carryover
+      : calcCarryOver(prevRemaining)
 
     // Hanya cuti Tahunan yang ngurangi saldo
     const annualUsed = leave.filter(l=>l.employee_id===empId&&l.leave_type==='Tahunan'&&l.status==='Approved'&&new Date(l.start_date+'T00:00:00').getFullYear()===year).reduce((s,l)=>s+l.total_days,0)
@@ -1130,7 +1138,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
       )}
 
       {/* ── MODAL: Tambah Overtime Leave ── */}
-      {showOTModal&&(<OvertimeModal employees={employees} balances={balances} onSave={saveOT} onClose={()=>setShowOTModal(false)}/>)}
+      {showOTModal&&(<OvertimeModal employees={employees} balances={balances} onSave={saveOT} onClose={()=>setShowOTModal(false)} saving={saving}/>)}
 
       {/* ── MODAL: Edit Saldo Cuti ── */}
       {showBalModal&&(
@@ -1207,7 +1215,7 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   )
 }
 
-function OvertimeModal({ employees, balances, onSave, onClose }: { employees:any[]; balances:any[]; onSave:(empId:string,days:number,note:string)=>void; onClose:()=>void }) {
+function OvertimeModal({ employees, balances, onSave, onClose, saving }: { employees:any[]; balances:any[]; onSave:(empId:string,days:number,note:string)=>void; onClose:()=>void; saving?:boolean }) {
   const [empId, setEmpId] = useState('')
   const [days, setDays]   = useState(1)
   const [note, setNote]   = useState('')
@@ -1236,8 +1244,13 @@ function OvertimeModal({ employees, balances, onSave, onClose }: { employees:any
           <textarea value={note} onChange={e=>setNote(e.target.value)} className="form-input h-16 resize-none" placeholder="e.g. Overtime April 2026 — project X, validasi dari manager + HC"/>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="btn btn-ghost">Batal</button>
-          <button onClick={()=>{if(!empId)return alert('Pilih karyawan');onSave(empId,days,note)}} className="btn btn-teal">Tambah {days} Hari</button>
+          <button onClick={onClose} className="btn btn-ghost" disabled={saving}>Batal</button>
+          <button
+            disabled={saving||!empId}
+            onClick={()=>{if(!empId)return alert('Pilih karyawan');onSave(empId,days,note)}}
+            className="btn btn-teal">
+            {saving?'Menyimpan...':(`Tambah ${days} Hari`)}
+          </button>
         </div>
       </div>
     </Modal>
