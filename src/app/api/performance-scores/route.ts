@@ -24,15 +24,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
-  const { data, error } = await db.from('performance_scores').upsert(body, { onConflict: 'employee_id,year,quarter' }).select().maybeSingle()
+  const { data, error } = await db.from('performance_scores').upsert(body, { onConflict: 'employee_id,year,quarter' })
+    .select('*, employee:employees(full_name,division,position)').maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const decrypted = await decryptNested(data ?? [])
-  return NextResponse.json({ data: decrypted })
+  const [dec] = data ? await decryptNested([data]) : [data]
+  return NextResponse.json({ data: dec })
 }
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
   const { id, ...body } = await req.json()
-  const { data, error } = await db.from('performance_scores').update(body).eq('id', id).select().maybeSingle()
+  const { data, error } = await db.from('performance_scores').update(body).eq('id', id)
+    .select('*, employee:employees(full_name,division,position)').maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const decrypted = await decryptNested(data ?? [])
   return NextResponse.json({ data: decrypted })

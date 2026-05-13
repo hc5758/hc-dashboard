@@ -22,21 +22,24 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const db = createServiceClient()
   const body = await req.json()
-  const { data, error } = await db.from('tna_records').insert(body).select().maybeSingle()
+  const { data, error } = await db.from('tna_records').insert(body)
+    .select('*, employee:employees(full_name,division)').maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const decrypted = await decryptNested(data ?? [])
-  return NextResponse.json({ data: decrypted })
+  const [dec] = data ? await decryptNested([data]) : [data]
+  return NextResponse.json({ data: dec })
 }
 
 export async function PATCH(req: NextRequest) {
   const db = createServiceClient()
-  const id = req.nextUrl.searchParams.get('id')
+  const queryId = req.nextUrl.searchParams.get('id')
   const body = await req.json()
+  const { id: bodyId, ...update } = body
+  const id = queryId || bodyId
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  const { data, error } = await db.from('tna_records').update(body).eq('id', id).select().maybeSingle()
+  const { data, error } = await db.from('tna_records').update(update).eq('id', id).select().maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const decrypted = await decryptNested(data ?? [])
-  return NextResponse.json({ data: decrypted })
+  const [dec] = data ? await decryptNested([data]) : [data]
+  return NextResponse.json({ data: dec })
 }
 
 export async function DELETE(req: NextRequest) {

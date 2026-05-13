@@ -415,18 +415,28 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
 
   // ── Save overtime addition ────────────────────────────────
   async function saveOT(empId:string, addDays:number, note:string){
-    const bal=balances.find(b=>b.employee_id===empId)
+    const bal=balances.find(b=>b.employee_id===empId&&b.year===saldoYear)
     const current=bal?.overtime_entitled??0
-    const payload={employee_id:empId,year:2026,overtime_entitled:current+addDays,notes:note}
-    const res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    const data=await res.json()
+    const payload:any={employee_id:empId,year:saldoYear,overtime_entitled:current+addDays,notes:note}
+
+    let res, data
+    if(bal?.id){
+      // Sudah ada record — update
+      res=await fetch('/api/leave-balance',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:bal.id,...payload})})
+    } else {
+      // Belum ada record — create baru
+      res=await fetch('/api/leave-balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,annual_entitled:12,annual_carryover:0,annual_used:0})})
+    }
+    data=await res.json()
     if(res.ok&&data.data){
       const emp=employees.find(e=>e.id===empId)
       setBalances(prev=>{
-        const exists=prev.find(b=>b.employee_id===empId)
-        if(exists)return prev.map(b=>b.employee_id===empId?{...data.data,employee:emp}:b)
+        const exists=prev.find(b=>b.employee_id===empId&&b.year===saldoYear)
+        if(exists)return prev.map(b=>b.employee_id===empId&&b.year===saldoYear?{...data.data,employee:emp}:b)
         return [{...data.data,employee:emp},...prev]
       })
+    } else {
+      alert('Gagal menyimpan OT: '+(data?.error||'Unknown error'))
     }
     setShowOTModal(false)
   }
