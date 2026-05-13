@@ -1,3 +1,4 @@
+import { decryptMany } from '@/lib/crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -10,6 +11,8 @@ export default async function LearningPage() {
     db.from('tna_records').select('*, employee:employees(full_name,division)').order('created_at', { ascending: false }),
     db.from('employees').select('id,full_name,division').eq('status', 'active').order('full_name'),
   ])
+  const decEmp = await decryptMany(employees ?? [], [{ key: 'full_name', type: 'string' as const }])
+
   return (
     <div className="page-wrapper">
       <Topbar title="Learning & Development" subtitle="YTD 2026" />

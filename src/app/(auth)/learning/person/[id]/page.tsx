@@ -1,3 +1,4 @@
+import { decryptMany } from '@/lib/crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import Topbar from '@/components/layout/Topbar'
 import PersonLearningClient from './PersonLearningClient'
@@ -16,11 +17,13 @@ export default async function PersonLearningPage({ params }: { params: { id: str
     </div>
   )
 
+  const [decEmployee] = await decryptMany([employee], [{ key: 'full_name', type: 'string' as const }])
+
   return (
     <div className="page-wrapper">
-      <Topbar title={`Learning — ${employee.full_name}`} subtitle={`${employee.division} · ${employee.position}`} />
+      <Topbar title={`Learning — ${decEmployee.full_name}`} subtitle={`${decEmployee.division} · ${decEmployee.position}`} />
       <div className="page-content">
-        <PersonLearningClient employee={employee} tna={tna ?? []} />
+        <PersonLearningClient employee={decEmployee} tna={tna ?? []} />
       </div>
     </div>
   )

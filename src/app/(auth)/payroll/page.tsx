@@ -1,3 +1,4 @@
+import { decryptMany } from '@/lib/crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -10,11 +11,13 @@ export default async function PayrollPage() {
     db.from('salary_records').select('*, employee:employees(full_name,division)').order('year',{ascending:false}).order('month',{ascending:false}),
     db.from('employees').select('id,full_name,division').eq('status','active').order('full_name'),
   ])
+  const decEmp = await decryptMany(employees ?? [], [{ key: 'full_name', type: 'string' as const }])
+
   return (
     <div className="page-wrapper">
       <Topbar title="Payroll Overview" subtitle="2026"/>
       <div className="page-content">
-        <PayrollClient salary={salary??[]} employees={employees??[]}/>
+        <PayrollClient salary={salary??[]} employees={decEmp}/>
       </div>
     </div>
   )

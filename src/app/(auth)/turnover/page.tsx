@@ -1,3 +1,4 @@
+import { decryptMany } from '@/lib/crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -11,12 +12,15 @@ export default async function TurnoverPage() {
     db.from('employees').select('id,full_name,division').order('full_name'),
     db.from('employees').select('*'),
   ])
-  const active = (allEmp??[]).filter(e=>e.status==='active')
+  const DEC = [{ key: 'full_name', type: 'string' as const }]
+  const decEmp    = await decryptMany(employees ?? [], DEC)
+  const decAllEmp = await decryptMany(allEmp ?? [], DEC)
+  const active    = decAllEmp.filter(e=>e.status==='active')
   return (
     <div className="page-wrapper">
       <Topbar title="Turnover & Retention" subtitle="Q2 2026"/>
       <div className="flex-1 overflow-y-auto p-6">
-        <TurnoverClient offboarding={offboarding??[]} employees={employees??[]} active={active}/>
+        <TurnoverClient offboarding={offboarding??[]} employees={decEmp} active={active}/>
       </div>
     </div>
   )

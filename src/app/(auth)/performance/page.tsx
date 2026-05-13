@@ -1,3 +1,4 @@
+import { decryptMany } from '@/lib/crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -12,11 +13,13 @@ export default async function PerformancePage() {
     db.from('employees').select('id,full_name,division').eq('status','active').order('full_name'),
     db.from('performance_scores').select('*, employee:employees(full_name,division)').order('year',{ascending:false}),
   ])
+  const decEmp = await decryptMany(employees ?? [], [{ key: 'full_name', type: 'string' as const }])
+
   return (
     <div className="page-wrapper">
       <Topbar title="Performance" subtitle="Review Q1 2026"/>
       <div className="page-content">
-        <PerformanceClient pip={pip??[]} employees={employees??[]} tna={tna??[]} scores={scores??[]}/>
+        <PerformanceClient pip={pip??[]} employees={decEmp} tna={tna??[]} scores={scores??[]}/>
       </div>
     </div>
   )
