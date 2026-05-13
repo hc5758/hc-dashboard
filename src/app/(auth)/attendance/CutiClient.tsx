@@ -138,32 +138,30 @@ export default function CutiClient({ leave:initLeave, employees, balances:initBa
   function calcAnnualEntitled(joinDate: string, year: number): number {
     if (!joinDate) return 12
     const join = new Date(joinDate + 'T00:00:00')
-    const joinYear  = join.getFullYear()
-    const joinMonth = join.getMonth() // 0-based
+    const anniversary = new Date(join)
+    anniversary.setFullYear(join.getFullYear() + 1)
 
-    // Hitung berapa bulan kerja penuh di tahun ini
     const startOfYear = new Date(year, 0, 1)
     const endOfYear   = new Date(year, 11, 31)
 
-    // Sudah genap 1 tahun sebelum tahun ini mulai?
-    const oneYearAfterJoin = new Date(join)
-    oneYearAfterJoin.setFullYear(join.getFullYear() + 1)
+    // Belum join tahun ini
+    if (join > endOfYear) return 0
 
-    if (oneYearAfterJoin <= startOfYear) {
-      // Sudah full 1 tahun sebelum tahun ini → 12 hari penuh
-      return 12
+    // Sudah genap 1 tahun sebelum atau di awal tahun ini → full 12
+    // anniversary <= 1 Jan year (sudah lewat sebelum tahun dimulai)
+    if (anniversary.getFullYear() < year || 
+        (anniversary.getFullYear() === year && anniversary.getMonth() === 0)) return 12
+
+    // Join di tahun ini (tahun pertama kerja)
+    // 1 hari per bulan dari bulan join sampai Desember
+    if (join.getFullYear() === year) {
+      return 12 - join.getMonth() // join Jan(0)=12, Mar(2)=10, Des(11)=1
     }
 
-    if (join > endOfYear) {
-      // Belum join di tahun ini
-      return 0
-    }
-
-    // Masih dalam tahun pertama — hitung bulan kerja proporsional di tahun ini
-    // Referensi: dari bulan join (atau Januari kalau sudah lewat tahun join) sampai Desember
-    const startMonth = joinYear === year ? joinMonth : 0 // mulai bulan join atau Januari
-    const monthsWorked = 12 - startMonth
-    return Math.min(monthsWorked, 12)
+    // Join tahun sebelumnya, anniversary jatuh di tahun ini
+    // Proporsional: 1 hari per bulan dari Jan s/d bulan anniversary (inklusif)
+    // Contoh: anniversary Juni 2026 → Jan Feb Mar Apr Mei Jun = 6 hari
+    return anniversary.getMonth() + 1
   }
 
   function getSaldo(empId:string, year:number=2026) {
