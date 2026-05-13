@@ -13,7 +13,7 @@ const EMPTY: any = {
   status:'active',gender:'Perempuan',birth_date:'',marital_status:'Belum Kawin',
   join_date:'',end_date:'',notes:'',
 }
-const DIVS=['Creative','Marketing','Social Media','Human Capital','Finance','IT & Systems','Operations']
+const DIVS=['BOD','BOC','KOM','Project Management','Finance & Accounting','Data','Growth and Partnership','Human Capital','Strategist','Budget & BS','Community Activation and Network','Production','Nyambee','Business Development','Creative']
 const LEVELS=['Jr. Staff','Staff','Sr. Staff','Associate','Officer','Sr. Officer','Specialist','Sr. Specialist','Manager','Sr. Manager','Head','Director']
 
 export default function WorkforceClient({ employees: init }: { employees: any[] }) {

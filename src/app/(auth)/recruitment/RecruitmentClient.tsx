@@ -346,7 +346,7 @@ export default function RecruitmentClient({ recruitment: init }: { recruitment: 
             <div className="grid grid-cols-3 gap-3">
               <div><label className="form-label">Division</label>
                 <select value={form.division} onChange={e=>fv('division',e.target.value)} className="form-input">
-                  {['Creative','Marketing','Social Media','Human Capital','Finance','IT & Systems','Operations'].map(d=><option key={d}>{d}</option>)}
+                  {['BOD','BOC','KOM','Project Management','Finance & Accounting','Data','Growth and Partnership','Human Capital','Strategist','Budget & BS','Community Activation and Network','Production','Nyambee','Business Development','Creative'].map(d=><option key={d}>{d}</option>)}
                 </select>
               </div>
               <div><label className="form-label">Entity</label>

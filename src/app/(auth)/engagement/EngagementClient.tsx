@@ -7,7 +7,7 @@ import { InlineBar, InsightCard, EmptyState } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 
-const DIVS = ['Creative','Marketing','Social Media','Human Capital','Finance','IT & Systems','Operations']
+const DIVS = ['BOD','BOC','KOM','Project Management','Finance & Accounting','Data','Growth and Partnership','Human Capital','Strategist','Budget & BS','Community Activation and Network','Production','Nyambee','Business Development','Creative']
 const QUARTERS = ['Q1','Q2','Q3','Q4']
 const EMPTY = { year:2026, quarter:'Q1', division:'Creative', engagement_score:'', satisfaction_score:'', response_count:0, total_count:0, notes:'' }
 
