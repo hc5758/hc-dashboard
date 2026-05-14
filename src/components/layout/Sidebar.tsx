@@ -1,13 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, UserPlus, TrendingDown, CalendarDays, BarChart2, GraduationCap, Heart, DollarSign, LogOut, Settings, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Users, UserPlus, TrendingDown, CalendarDays, BarChart2, GraduationCap, Heart, DollarSign, LogOut, Settings, ChevronRight, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const nav = [
   { href: '/dashboard',   label: 'Dashboard',      icon: LayoutDashboard },
   { section: 'Data SDM' },
   { href: '/workforce',   label: 'Workforce',      icon: Users },
+  { href: '/onboarding',  label: 'Onboarding',     icon: ClipboardList },
+
   { href: '/recruitment', label: 'Recruitment',    icon: UserPlus,      badge: '3', badgeColor: 'bg-teal-100 text-teal-700' },
   { href: '/turnover',    label: 'Turnover',       icon: TrendingDown,  badge: '!', badgeColor: 'bg-red-100 text-red-600' },
   { href: '/attendance',  label: 'Manajemen Cuti', icon: CalendarDays },
