@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     db.from('employees').select('*').order('full_name'),
     db.from('contracts').select('*, employee:employees(full_name,division,employment_type)').eq('is_active',true),
-    db.from('onboarding').select('*, employee:employees(full_name,position,division)').order('created_at',{ascending:false}),
+    db.from('onboarding').select('*, employee:employees(full_name,position,division,join_date,employment_type)').order('created_at',{ascending:false}),
     db.from('offboarding').select('*, employee:employees(full_name,division,join_date)').order('report_date',{ascending:false}),
     db.from('recruitment').select('*, candidates:recruitment_candidates(id,stage)').order('created_at',{ascending:false}),
     db.from('tna_records').select('*, employee:employees(full_name,division)').order('created_at',{ascending:false}),
@@ -29,9 +29,23 @@ export default async function DashboardPage() {
   const decryptedEmployees = await decryptMany(employees??[], DEC)
 
   // Decrypt nested full_name in onboarding, offboarding, contracts, salary
-  const decOnboarding = await Promise.all((onboarding??[]).map(async (o:any)=>({
+  const decOnboardingRaw = await Promise.all((onboarding??[]).map(async (o:any)=>({
     ...o, employee: o.employee?(await decryptMany([o.employee],DEC))[0]:o.employee
   })))
+
+  // Tambah karyawan baru (join dalam 1 bulan terakhir) yang belum punya record onboarding
+  const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1)
+  const onboardingEmpIds = new Set(decOnboardingRaw.map((o:any)=>o.employee_id))
+  const newJoiners = decryptedEmployees.filter(e=>
+    e.status==='active' &&
+    e.join_date &&
+    new Date(e.join_date+'T00:00:00') >= oneMonthAgo &&
+    !onboardingEmpIds.has(e.id)
+  ).map(e=>({
+    id: null, employee_id: e.id,
+    employee: { full_name: e.full_name, position: e.position, division: e.division, join_date: e.join_date, employment_type: e.employment_type },
+  }))
+  const decOnboarding = [...decOnboardingRaw, ...newJoiners]
   const decOffboarding = await Promise.all((offboarding??[]).map(async (o:any)=>({
     ...o, employee: o.employee?(await decryptMany([o.employee],DEC))[0]:o.employee
   })))

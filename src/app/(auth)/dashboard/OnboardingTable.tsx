@@ -97,9 +97,10 @@ function calcSectionProgress(o: any, section: typeof SECTIONS[0]) {
 
 export default function OnboardingTable({ onboarding }: { onboarding: any[] }) {
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [saving, setSaving] = useState<string | null>(null)
+  const [saving,    setSaving]   = useState<string | null>(null)
+  const [localData, setLocalData] = useState(onboarding)
 
-  if (!onboarding.length) return (
+  if (!localData.length) return (
     <div className="card">
       <div className="card-head"><span className="card-title">Onboarding Checklist</span></div>
       <div className="px-5 py-4 text-[12px] text-slate-400">Tidak ada karyawan dalam proses onboarding.</div>
@@ -107,13 +108,32 @@ export default function OnboardingTable({ onboarding }: { onboarding: any[] }) {
   )
 
   async function toggle(empId: string, field: string, current: boolean) {
+    // Optimistic update
+    setLocalData(prev => prev.map(o =>
+      o.employee_id === empId ? { ...o, [field]: !current } : o
+    ))
     setSaving(`${empId}-${field}`)
     try {
-      await fetch('/api/onboarding', {
+      const res = await fetch('/api/onboarding', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ employee_id: empId, [field]: !current }),
       })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setLocalData(prev => prev.map(o =>
+          o.employee_id === empId ? { ...json.data, employee: o.employee } : o
+        ))
+      } else {
+        // Revert on error
+        setLocalData(prev => prev.map(o =>
+          o.employee_id === empId ? { ...o, [field]: current } : o
+        ))
+      }
+    } catch {
+      setLocalData(prev => prev.map(o =>
+        o.employee_id === empId ? { ...o, [field]: current } : o
+      ))
     } finally {
       setSaving(null)
     }
@@ -126,7 +146,7 @@ export default function OnboardingTable({ onboarding }: { onboarding: any[] }) {
         <span className="text-[11px] text-slate-400">{onboarding.length} karyawan</span>
       </div>
 
-      {onboarding.map((o) => {
+      {localData.map((o) => {
         const { done, total, pct } = calcProgress(o)
         const isOpen = expanded === o.employee_id
         const name = o.employee?.full_name || '–'

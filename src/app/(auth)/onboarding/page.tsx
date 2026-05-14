@@ -8,15 +8,16 @@ export const revalidate = 0
 export default async function OnboardingPage() {
   const db = createServiceClient()
 
-  // Karyawan aktif yang join dalam 6 bulan terakhir (masa probation max)
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  // Tampilkan semua karyawan aktif yang:
+  // 1. Punya record onboarding (berarti sudah pernah dichecklist), ATAU
+  // 2. Join dalam 1 bulan terakhir (baru masuk, otomatis masuk onboarding)
+  const oneMonthAgo = new Date()
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
 
-  const [{ data: employees }, { data: onboarding }] = await Promise.all([
+  const [{ data: allEmployees }, { data: onboarding }] = await Promise.all([
     db.from('employees')
       .select('id,full_name,position,division,entity,employment_type,join_date,status')
       .eq('status', 'active')
-      .gte('join_date', sixMonthsAgo.toISOString().slice(0,10))
       .order('join_date', { ascending: false }),
     db.from('onboarding')
       .select('*')
@@ -24,11 +25,16 @@ export default async function OnboardingPage() {
   ])
 
   const DEC = [{ key: 'full_name', type: 'string' as const }]
-  const decEmployees = await decryptMany(employees ?? [], DEC)
+  const decEmployees = await decryptMany(allEmployees ?? [], DEC)
 
-  // Merge: untuk tiap karyawan, cari record onboarding-nya
-  // Kalau belum ada, buat default kosong
-  const merged = decEmployees.map(emp => {
+  // Filter: punya onboarding record ATAU join dalam 1 bulan terakhir
+  const onboardingIds = new Set((onboarding ?? []).map((o:any) => o.employee_id))
+  const employees = decEmployees.filter(emp =>
+    onboardingIds.has(emp.id) ||
+    new Date(emp.join_date + 'T00:00:00') >= oneMonthAgo
+  )
+
+  const merged = employees.map(emp => {
     const rec = (onboarding ?? []).find((o:any) => o.employee_id === emp.id)
     return { employee: emp, onboarding: rec || null }
   })

@@ -86,17 +86,12 @@ function calcYoS(joinDate: string) {
   return months < 1 ? '< 1 bulan' : `${months} bulan`
 }
 
-// Masa tunggu: PKWTT 3 bulan, PKWT 6 bulan
-function probationMonths(emp: any) {
-  return emp.employment_type === 'PKWTT' ? 3 : 6
-}
-
+// Onboarding = 1 bulan pertama untuk semua karyawan
 function daysLeft(emp: any) {
-  const join    = new Date(emp.join_date + 'T00:00:00')
-  const probEnd = new Date(join)
-  probEnd.setMonth(probEnd.getMonth() + probationMonths(emp))
-  const diff = Math.ceil((probEnd.getTime() - Date.now()) / 86400000)
-  return diff
+  const join       = new Date(emp.join_date + 'T00:00:00')
+  const onboardEnd = new Date(join)
+  onboardEnd.setMonth(onboardEnd.getMonth() + 1)
+  return Math.ceil((onboardEnd.getTime() - Date.now()) / 86400000)
 }
 
 export default function OnboardingPageClient({ merged }: { merged: any[] }) {
@@ -120,6 +115,12 @@ export default function OnboardingPageClient({ merged }: { merged: any[] }) {
   const notStart  = data.filter(m => calcProgress(m.onboarding).pct === 0).length
 
   async function toggle(empId: string, field: string, current: boolean) {
+    // Optimistic update
+    setData(prev => prev.map(m =>
+      m.employee.id === empId
+        ? { ...m, onboarding: { ...(m.onboarding || { employee_id: empId }), [field]: !current } }
+        : m
+    ))
     setSaving(`${empId}-${field}`)
     try {
       const res = await fetch('/api/onboarding', {
@@ -130,11 +131,22 @@ export default function OnboardingPageClient({ merged }: { merged: any[] }) {
       const json = await res.json()
       if (res.ok && json.data) {
         setData(prev => prev.map(m =>
+          m.employee.id === empId ? { ...m, onboarding: json.data } : m
+        ))
+      } else {
+        // Revert
+        setData(prev => prev.map(m =>
           m.employee.id === empId
-            ? { ...m, onboarding: json.data }
+            ? { ...m, onboarding: { ...(m.onboarding || { employee_id: empId }), [field]: current } }
             : m
         ))
       }
+    } catch {
+      setData(prev => prev.map(m =>
+        m.employee.id === empId
+          ? { ...m, onboarding: { ...(m.onboarding || { employee_id: empId }), [field]: current } }
+          : m
+      ))
     } finally {
       setSaving(null)
     }
@@ -174,8 +186,8 @@ export default function OnboardingPageClient({ merged }: { merged: any[] }) {
       {filtered.length === 0 ? (
         <div className="card p-10 text-center">
           <Users size={32} className="text-slate-200 mx-auto mb-3"/>
-          <div className="text-[13px] text-slate-400">Tidak ada karyawan dalam masa onboarding</div>
-          <div className="text-[11px] text-slate-300 mt-1">Karyawan baru (join dalam 6 bulan terakhir) akan otomatis muncul di sini</div>
+          <div className="text-[13px] text-slate-400">Tidak ada karyawan dalam proses onboarding</div>
+          <div className="text-[11px] text-slate-300 mt-1">Karyawan baru (join bulan ini) atau yang punya checklist onboarding akan otomatis muncul di sini</div>
         </div>
       ) : (
         <div className="card overflow-hidden">
@@ -185,10 +197,9 @@ export default function OnboardingPageClient({ merged }: { merged: any[] }) {
             const { done, total: tot, pct } = calcProgress(ob)
             const isOpen   = expanded === emp.id
             const dl       = daysLeft(emp)
-            const isExpired = dl <= 0
 
             return (
-              <div key={emp.id} className={cn('border-b border-slate-50 last:border-0', isExpired && 'opacity-60')}>
+              <div key={emp.id} className='border-b border-slate-50 last:border-0'>
                 {/* Row */}
                 <div
                   className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-slate-50/60 transition-colors"
@@ -226,13 +237,13 @@ export default function OnboardingPageClient({ merged }: { merged: any[] }) {
                   <div className="text-right flex-shrink-0">
                     {pct===100 ? (
                       <div className="text-[11px] font-bold text-teal-500">✓ Selesai</div>
-                    ) : isExpired ? (
-                      <div className="text-[11px] text-slate-400">Masa probasi selesai</div>
-                    ) : (
+                    ) : dl > 0 ? (
                       <div>
-                        <div className={cn('text-[13px] font-bold', dl<=14?'text-red-500':dl<=30?'text-amber-500':'text-slate-600')}>{dl} hari</div>
-                        <div className="text-[9.5px] text-slate-400">sisa probasi</div>
+                        <div className={cn('text-[13px] font-bold', dl<=7?'text-red-500':dl<=14?'text-amber-500':'text-slate-600')}>{dl} hari</div>
+                        <div className="text-[9.5px] text-slate-400">sisa onboarding</div>
                       </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400">Bulan pertama selesai</div>
                     )}
                     <div className={cn('text-[10px] font-bold mt-0.5', pct===100?'text-teal-500':pct>=50?'text-amber-500':'text-slate-400')}>{pct}%</div>
                   </div>
